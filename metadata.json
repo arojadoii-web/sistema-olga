@@ -1,0 +1,7 @@
+{
+  "name": "Frutería Olga - Sistema de Gestión",
+  "description": "Sistema administrativo completo para la gestión de ventas, compras, inventario, clientes y proveedores de Frutería Olga en Huánuco, Perú.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
