@@ -61,12 +61,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
                 <span className="text-[10px] font-black uppercase tracking-widest text-primary-600">Admin Cloud</span>
               </div>
             </div>
-            <button className="md:hidden p-2 text-gray-400" onClick={() => setSidebarOpen(false)}>
-              <X size={24} />
+            <button className="md:hidden p-3 -mr-2 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setSidebarOpen(false)}>
+              <X size={28} />
             </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-2 overflow-y-auto py-4 custom-scrollbar">
+          <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-2 custom-scrollbar">
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -102,43 +102,44 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <header className="h-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button 
-              className="md:hidden p-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-400 active:scale-90 transition-transform"
+              className="md:hidden p-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-400 active:scale-90 transition-transform flex items-center justify-center"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Abrir menú"
             >
-              <Menu size={24} />
+              <Menu size={26} />
             </button>
             
             <button 
               onClick={handleRefresh}
-              className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
                 !isCloudConnected 
                   ? 'bg-amber-100 text-amber-700 border border-amber-200' 
                   : 'bg-green-100 text-green-700 border border-green-200'
               }`}
             >
               <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-              <span className="hidden xs:inline">{!isCloudConnected ? 'Modo Local' : 'Nube Activa'}</span>
+              <span className="hidden xs:inline">{!isCloudConnected ? 'Local' : 'Nube'}</span>
             </button>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
             <button 
               onClick={() => setTheme(state.theme === 'light' ? 'dark' : 'light')}
-              className="p-3 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all"
+              className="p-3 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all flex items-center justify-center"
             >
-              {state.theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+              {state.theme === 'light' ? <Moon size={22} /> : <Sun size={22} />}
             </button>
             
-            <div className="h-10 w-px bg-gray-100 dark:bg-gray-700 mx-1 hidden xs:block" />
+            <div className="h-8 w-px bg-gray-100 dark:bg-gray-700 mx-1 hidden xs:block" />
             
-            <div className="flex items-center gap-2 md:gap-3 pl-1">
+            <div className="flex items-center gap-2 pl-1">
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-black text-gray-900 dark:text-white leading-none">{state.user?.name.split(' ')[0]}</p>
                 <p className="text-[10px] text-primary-600 font-black uppercase mt-1 tracking-tighter">{state.user?.role}</p>
               </div>
-              <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-primary-600 overflow-hidden flex items-center justify-center text-white font-black border-2 border-white dark:border-gray-700 shadow-md shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-primary-600 overflow-hidden flex items-center justify-center text-white font-black border-2 border-white dark:border-gray-700 shadow-md shrink-0">
                 {state.user?.photo ? (
                   <img src={state.user.photo} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
