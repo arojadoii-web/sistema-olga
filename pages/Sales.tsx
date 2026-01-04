@@ -148,7 +148,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
         </div>
       </div>
       
-      {/* Vista móvil de tarjetas */}
+      {/* Vista móvil */}
       <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
         {paginatedSales.length === 0 ? (
           <div className="p-20 text-center text-gray-400 font-bold italic uppercase tracking-widest text-xs">Vacio</div>
@@ -163,12 +163,19 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-black text-primary-600 leading-none">{formatMoney(sale.total)}</p>
-                  <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                    sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
-                    sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {sale.saleStatus}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 mt-2">
+                    <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                      sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
+                      sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {sale.saleStatus}
+                    </span>
+                    <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                      sale.docStatus === 'Emitido' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {sale.docStatus}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -185,7 +192,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
         )}
       </div>
 
-      {/* Vista desktop de tabla */}
+      {/* Vista desktop */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-gray-50 dark:bg-gray-700/50 text-[10px] font-black uppercase text-gray-400 tracking-widest">
@@ -194,7 +201,8 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
               <th className="px-8 py-6">Cliente</th>
               <th className="px-8 py-6">Documento</th>
               <th className="px-8 py-6 text-right">Total</th>
-              <th className="px-8 py-6 text-center">Estado</th>
+              <th className="px-8 py-6 text-center">Estado Venta</th>
+              <th className="px-8 py-6 text-center">Estado Doc</th>
               <th className="px-8 py-6 text-center">Acciones</th>
             </tr>
           </thead>
@@ -203,7 +211,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
               <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                 <td className="px-8 py-5 text-sm font-bold text-gray-900 dark:text-white">{sale.date}</td>
                 <td className="px-8 py-5">
-                  <div className="text-sm font-black text-gray-900 dark:text-white">{sale.clientName}</div>
+                  <div className="text-sm font-black text-gray-900 dark:text-white uppercase">{sale.clientName}</div>
                   <div className="text-[10px] text-gray-400 font-bold">{sale.clientDocType}: {sale.clientDocNumber}</div>
                 </td>
                 <td className="px-8 py-5">
@@ -217,6 +225,13 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
                     sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
                   }`}>
                     {sale.saleStatus}
+                  </span>
+                </td>
+                <td className="px-8 py-5 text-center">
+                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                    sale.docStatus === 'Emitido' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {sale.docStatus}
                   </span>
                 </td>
                 <td className="px-8 py-5">
@@ -367,26 +382,26 @@ const NewSaleForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="md:col-span-4 border-b border-gray-100 dark:border-gray-700 pb-6 flex items-center gap-3 text-primary-600 font-black uppercase tracking-[0.2em] text-[10px]">
-          <User size={18} /> Perfil de Facturación
+      <div className="bg-white dark:bg-gray-800 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-6 gap-6">
+        <div className="md:col-span-6 border-b border-gray-100 dark:border-gray-700 pb-6 flex items-center gap-3 text-primary-600 font-black uppercase tracking-[0.2em] text-[10px]">
+          <User size={18} /> Datos del Cliente y Facturación
         </div>
         
         <div className="md:col-span-1">
-          <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Fecha Emisión</label>
-          <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-bold" />
+          <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Fecha</label>
+          <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-bold text-xs" />
         </div>
 
         <div className="relative md:col-span-1">
-          <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Buscar por DNI/RUC</label>
+          <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Buscar DNI/RUC</label>
           <div className="relative">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
             <input 
               type="text" 
               placeholder="Número..." 
               value={docSearch}
               onChange={(e) => setDocSearch(e.target.value)}
-              className="w-full pl-14 pr-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-mono font-bold" 
+              className="w-full pl-10 pr-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-mono font-bold text-xs" 
             />
           </div>
           {docSuggestions.length > 0 && (
@@ -396,10 +411,10 @@ const NewSaleForm: React.FC<{
                   key={client.id}
                   type="button"
                   onClick={() => handleSelectClient(client)}
-                  className="w-full px-5 py-4 text-left hover:bg-primary-50 dark:hover:bg-primary-900/20 text-sm flex flex-col border-b border-gray-50 last:border-0"
+                  className="w-full px-4 py-3 text-left hover:bg-primary-50 dark:hover:bg-primary-900/20 text-sm flex flex-col border-b border-gray-50 last:border-0"
                 >
-                  <span className="font-black text-gray-900 dark:text-white">{client.docNumber}</span>
-                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{client.name}</span>
+                  <span className="font-black text-gray-900 dark:text-white text-xs">{client.docNumber}</span>
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">{client.name}</span>
                 </button>
               ))}
             </div>
@@ -412,15 +427,15 @@ const NewSaleForm: React.FC<{
             const client = clients.find(c => c.id === e.target.value);
             if (client) handleSelectClient(client);
             else setFormData({...formData, clientId: ''});
-          }} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-sm">
-            <option value="">SELECCIONAR CLIENTE...</option>
+          }} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-[11px] uppercase">
+            <option value="">Elegir cliente...</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Servicio</label>
-          <select value={formData.service} onChange={e => setFormData({...formData, service: e.target.value as ServiceType})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-bold">
+          <select value={formData.service} onChange={e => setFormData({...formData, service: e.target.value as ServiceType})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-bold text-xs uppercase tracking-tighter">
             <option value="Venta de Frutas">VENTA DE FRUTAS</option>
             <option value="Alquiler de Local">ALQUILER DE LOCAL</option>
           </select>
@@ -428,15 +443,35 @@ const NewSaleForm: React.FC<{
 
         <div className="md:col-span-1">
           <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Comprobante</label>
-          <select value={formData.documentType} onChange={e => setFormData({...formData, documentType: e.target.value as DocumentType})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black">
+          <select value={formData.documentType} onChange={e => setFormData({...formData, documentType: e.target.value as DocumentType})} className="w-full px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs">
             <option value="Boleta">BOLETA</option>
             <option value="Factura">FACTURA</option>
           </select>
         </div>
 
-        <div className="md:col-span-1">
+        <div className="md:col-span-2">
           <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">N° Comprobante</label>
-          <input type="text" value={formData.documentNumber} onChange={e => setFormData({...formData, documentNumber: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black" placeholder="F001-XXXX" />
+          <input type="text" value={formData.documentNumber} onChange={e => setFormData({...formData, documentNumber: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs uppercase" placeholder="F001-XXXX" />
+        </div>
+
+        <div className="md:col-span-1">
+          <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Estado Doc</label>
+          <select value={formData.docStatus} onChange={e => setFormData({...formData, docStatus: e.target.value as DocStatus})} className="w-full px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs">
+            <option value="Emitido">EMITIDO</option>
+            <option value="Pendiente">PENDIENTE</option>
+          </select>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Estado Venta</label>
+          <select value={formData.saleStatus} onChange={e => setFormData({...formData, saleStatus: e.target.value as SaleStatus})} className={`w-full px-4 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-primary-500 font-black text-xs uppercase ${
+            formData.saleStatus === 'Cancelado' ? 'bg-green-50 text-green-700' : 
+            formData.saleStatus === 'Pendiente' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
+          }`}>
+            <option value="Pendiente">PENDIENTE</option>
+            <option value="Cancelado">CANCELADO</option>
+            <option value="Anulado">ANULADO</option>
+          </select>
         </div>
       </div>
 
@@ -451,7 +486,6 @@ const NewSaleForm: React.FC<{
            </button>
         </div>
         
-        {/* Lista optimizada para móvil */}
         <div className="space-y-6">
           {items.map((item, i) => (
             <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-3xl relative animate-in slide-in-from-right-4">
@@ -472,7 +506,7 @@ const NewSaleForm: React.FC<{
                     value={productSearch.index === i ? productSearch.term : (item.productName || '')}
                     onFocus={() => setProductSearch({ index: i, term: item.productName || '' })}
                     onChange={(e) => setProductSearch({ index: i, term: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white font-bold outline-none border-2 border-transparent focus:border-primary-500 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white font-bold outline-none border-2 border-transparent focus:border-primary-500 transition-all uppercase"
                   />
                   {productSearch.index === i && productSearch.term.length > 0 && (
                     <div className="absolute z-[200] left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in">
@@ -567,8 +601,6 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
         return;
       }
 
-      const selectedClientName = clientId === 'all' ? 'TODOS LOS CLIENTES' : clients.find(c => c.id === clientId)?.name || 'DESCONOCIDO';
-
       doc.setFontSize(22);
       doc.setTextColor(22, 163, 74);
       doc.text('FRUTERÍA OLGA', 105, 20, { align: 'center' });
@@ -632,7 +664,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
 
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Filtrar Cliente</label>
-            <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none font-black text-sm">
+            <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none font-black text-sm uppercase">
               <option value="all">TODOS LOS CLIENTES</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -669,7 +701,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, onClose: () => void, formatMoney: 
         
         <div className="p-10 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-2 gap-8">
-            <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Cliente</p><p className="font-black text-gray-900 dark:text-white">{sale.clientName}</p></div>
+            <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Cliente</p><p className="font-black text-gray-900 dark:text-white uppercase">{sale.clientName}</p></div>
             <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Fecha</p><p className="font-black text-gray-900 dark:text-white">{sale.date}</p></div>
           </div>
 
