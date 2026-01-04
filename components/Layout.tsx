@@ -14,8 +14,15 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) => {
-  const { state, isCloudConnected, setTheme, setCurrency, logout } = useStore();
+  const { state, isCloudConnected, setTheme, setCurrency, logout, refreshCloudData } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshCloudData();
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -29,30 +36,37 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
   ];
 
   return (
-    <div className="h-screen flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 overflow-hidden">
+    <div className="h-screen flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 overflow-hidden font-sans">
+      {/* Overlay para móvil */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity" 
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
+      {/* Sidebar - Optimizado para touch */}
       <aside className={`
-        fixed md:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
-        transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 shrink-0
+        fixed md:relative inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
+        transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0
       `}>
         <div className="h-full flex flex-col">
-          <div className="p-6 flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-              FO
+          <div className="p-8 flex items-center justify-between md:justify-start gap-4 shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-600/20">
+                FO
+              </div>
+              <div>
+                <h1 className="font-black text-xl leading-tight tracking-tighter">Frutería Olga</h1>
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary-600">Admin Cloud</span>
+              </div>
             </div>
-            <div>
-              <h1 className="font-bold text-lg leading-tight">Frutería Olga</h1>
-              <span className="text-xs text-gray-500 dark:text-gray-400">Panel Administrativo</span>
-            </div>
+            <button className="md:hidden p-2 text-gray-400" onClick={() => setSidebarOpen(false)}>
+              <X size={24} />
+            </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-4">
+          <nav className="flex-1 px-4 space-y-2 overflow-y-auto py-4 custom-scrollbar">
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -61,79 +75,70 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
                   setSidebarOpen(false);
                 }}
                 className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                  w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95
                   ${activePage === item.id 
-                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30' 
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
+                    ? 'bg-primary-600 text-white shadow-xl shadow-primary-600/30' 
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
                 `}
               >
-                <item.icon size={20} />
-                <span className="font-medium">{item.label}</span>
+                <item.icon size={22} strokeWidth={activePage === item.id ? 2.5 : 2} />
+                <span className="font-bold text-sm tracking-tight">{item.label}</span>
               </button>
             ))}
           </nav>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
+          <div className="p-6 border-t border-gray-100 dark:border-gray-700 shrink-0">
             <button 
               onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+              className="w-full flex items-center justify-center gap-3 px-4 py-4 text-red-500 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 rounded-2xl transition-all font-black text-xs uppercase tracking-widest"
             >
-              <LogOut size={20} />
-              <span className="font-medium">Cerrar Sesión</span>
+              <LogOut size={18} />
+              Cerrar Sesión
             </button>
           </div>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        <header className="h-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
           <div className="flex items-center gap-4">
             <button 
-              className="md:hidden p-2 text-gray-600 dark:text-gray-400"
+              className="md:hidden p-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-400 active:scale-90 transition-transform"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu size={24} />
             </button>
             
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-              !isCloudConnected ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-green-100 text-green-700 border border-green-200'
-            }`}>
-              {!isCloudConnected ? <CloudOff size={14} /> : <Cloud size={14} />}
-              {!isCloudConnected ? 'Modo Local' : 'Nube Sincronizada'}
-            </div>
+            <button 
+              onClick={handleRefresh}
+              className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                !isCloudConnected 
+                  ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                  : 'bg-green-100 text-green-700 border border-green-200'
+              }`}
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hidden xs:inline">{!isCloudConnected ? 'Modo Local' : 'Nube Activa'}</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button 
-                onClick={() => setCurrency('PEN')}
-                className={`px-3 py-1 rounded text-xs font-bold transition-all ${state.currency === 'PEN' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary-600' : 'text-gray-500'}`}
-              >
-                S/
-              </button>
-              <button 
-                onClick={() => setCurrency('USD')}
-                className={`px-3 py-1 rounded text-xs font-bold transition-all ${state.currency === 'USD' ? 'bg-white dark:bg-gray-600 shadow-sm text-primary-600' : 'text-gray-500'}`}
-              >
-                $
-              </button>
-            </div>
-            
+          <div className="flex items-center gap-2 md:gap-3">
             <button 
               onClick={() => setTheme(state.theme === 'light' ? 'dark' : 'light')}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="p-3 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all"
             >
               {state.theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
             
-            <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+            <div className="h-10 w-px bg-gray-100 dark:bg-gray-700 mx-1 hidden xs:block" />
             
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block text-right">
-                <p className="text-sm font-bold leading-none">{state.user?.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-tighter">{state.user?.role}</p>
+            <div className="flex items-center gap-2 md:gap-3 pl-1">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-black text-gray-900 dark:text-white leading-none">{state.user?.name.split(' ')[0]}</p>
+                <p className="text-[10px] text-primary-600 font-black uppercase mt-1 tracking-tighter">{state.user?.role}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-primary-100 overflow-hidden flex items-center justify-center text-primary-700 font-bold border border-primary-200 shrink-0">
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-primary-600 overflow-hidden flex items-center justify-center text-white font-black border-2 border-white dark:border-gray-700 shadow-md shrink-0">
                 {state.user?.photo ? (
                   <img src={state.user.photo} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -144,7 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
           {children}
         </div>
       </main>

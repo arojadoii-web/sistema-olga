@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🍎 Frutería Olga - Sistema Administrativo Cloud
 
-# Run and deploy your AI Studio app
+Sistema de gestión profesional para control de ventas, inventario y clientes.
 
-This contains everything you need to run your app locally.
+## 💻 Uso en PC (Local)
+Para trabajar en tu computadora y probar cambios antes de subirlos:
+1. Abre la terminal en VS Code.
+2. Ejecuta: `npm run dev`
+3. Abre el link `http://localhost:3000` en tu navegador.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1O6mkzfNeWEQfO7LnaGvh4bYdJufb2iMU
+## 🔄 Sincronizar con Vercel (Subir cambios)
+Si hiciste cambios en VS Code y quieres que se vean en tu celular (Vercel), ejecuta estos 3 comandos:
+```bash
+git add .
+git commit -m "Descripción de lo que cambiaste"
+git push
+```
+*Vercel actualizará la web `sistema-olga.vercel.app` automáticamente en segundos.*
 
-## Run Locally
+## 📱 Instalación en Móvil
+- Abre `https://sistema-olga.vercel.app` en Chrome (Android) o Safari (iPhone).
+- Dale a **"Agregar a la pantalla de inicio"**.
+- ¡Ahora tienes el icono de Frutería Olga junto a tus otras Apps!
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🔑 Acceso
+- **User:** `FO-ALEJANDRO`
+- **Pass:** `123456`
