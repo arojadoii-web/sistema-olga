@@ -1,5 +1,4 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { 
@@ -12,69 +11,112 @@ const Dashboard: React.FC = () => {
   const { state } = useStore();
   const [filter, setFilter] = useState<'Día' | 'Mes' | 'Año'>('Mes');
 
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const currentMonthStr = todayStr.substring(0, 7);
+  const currentYearStr = todayStr.substring(0, 4);
+
+  // 1. Filtrar ventas según el periodo seleccionado para KPIs y Listas
+  const filteredSales = useMemo(() => {
+    return state.sales.filter(s => {
+      if (s.saleStatus === 'Anulado') return false;
+      if (filter === 'Día') return s.date === todayStr;
+      if (filter === 'Mes') return s.date.startsWith(currentMonthStr);
+      return s.date.startsWith(currentYearStr);
+    });
+  }, [state.sales, filter, todayStr, currentMonthStr, currentYearStr]);
+
   const stats = useMemo(() => {
-    const totalSales = state.sales.reduce((acc, s) => s.saleStatus !== 'Anulado' ? acc + s.total : acc, 0);
-    const pendingSales = state.sales.filter(s => s.saleStatus === 'Pendiente').reduce((acc, s) => acc + s.total, 0);
-    const canceledSales = state.sales.filter(s => s.saleStatus === 'Cancelado').reduce((acc, s) => acc + s.total, 0);
+    const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
+    const pendingSales = filteredSales.filter(s => s.saleStatus === 'Pendiente').reduce((acc, s) => acc + s.total, 0);
+    const canceledSales = filteredSales.filter(s => s.saleStatus === 'Cancelado').reduce((acc, s) => acc + s.total, 0);
     const tax = totalSales * 0.015;
-    const productsSold = state.sales.reduce((acc, s) => acc + s.items.reduce((sum, item) => sum + item.quantity, 0), 0);
+    const productsSold = filteredSales.reduce((acc, s) => acc + s.items.reduce((sum, item) => sum + item.quantity, 0), 0);
     const clientCount = state.clients.length;
 
-    const docsEmitidos = state.sales.filter(s => s.docStatus === 'Emitido').length;
-    const docsPendientes = state.sales.filter(s => s.docStatus === 'Pendiente').length;
+    const docsEmitidos = filteredSales.filter(s => s.docStatus === 'Emitido').length;
+    const docsPendientes = filteredSales.filter(s => s.docStatus === 'Pendiente').length;
     
     const productCount = state.products.length;
     const supplierCount = state.suppliers.length;
 
     return { totalSales, pendingSales, canceledSales, tax, productsSold, clientCount, docsEmitidos, docsPendientes, productCount, supplierCount };
-  }, [state.sales, state.clients, state.products, state.suppliers]);
+  }, [filteredSales, state.clients, state.products, state.suppliers]);
 
-  const monthlySalesData = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const data = months.map(m => ({ name: m, ventas: 0, cantidad: 0 }));
+  // 2. Generar datos dinámicos para los gráficos según el filtro
+  const dynamicChartData = useMemo(() => {
+    if (filter === 'Año') {
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      return months.map((m, i) => {
+        const monthSales = state.sales.filter(s => {
+          const [y, mm] = s.date.split('-').map(Number);
+          return s.saleStatus !== 'Anulado' && y === parseInt(currentYearStr) && mm === i + 1;
+        });
+        return {
+          name: m,
+          ventas: monthSales.reduce((acc, s) => acc + s.total, 0),
+          cantidad: monthSales.length
+        };
+      });
+    }
 
-    state.sales.forEach(sale => {
-      if (sale.saleStatus !== 'Anulado') {
-        const [year, month] = sale.date.split('-').map(Number);
-        if (year === currentYear) {
-          const amount = state.currency === 'PEN' ? sale.total : sale.total / state.exchangeRate;
-          data[month - 1].ventas += amount;
-          data[month - 1].cantidad += 1;
-        }
+    if (filter === 'Mes') {
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const data = [];
+      for (let i = 1; i <= daysInMonth; i++) {
+        const dStr = `${currentMonthStr}-${String(i).padStart(2, '0')}`;
+        const daySales = state.sales.filter(s => s.saleStatus !== 'Anulado' && s.date === dStr);
+        data.push({
+          name: String(i),
+          ventas: daySales.reduce((acc, s) => acc + s.total, 0),
+          cantidad: daySales.length
+        });
       }
-    });
+      return data;
+    }
 
-    return data;
-  }, [state.sales, state.currency, state.exchangeRate]);
+    if (filter === 'Día') {
+      // Para día, mostramos los últimos 7 días incluyendo hoy para dar perspectiva
+      const data = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dStr = d.toISOString().split('T')[0];
+        const daySales = state.sales.filter(s => s.saleStatus !== 'Anulado' && s.date === dStr);
+        data.push({
+          name: dStr.split('-').slice(1).join('/'),
+          ventas: daySales.reduce((acc, s) => acc + s.total, 0),
+          cantidad: daySales.length
+        });
+      }
+      return data;
+    }
+    return [];
+  }, [state.sales, filter, currentYearStr, currentMonthStr]);
 
   const topFruits = useMemo(() => {
     const counts: Record<string, number> = {};
-    state.sales.forEach(s => {
-      if (s.saleStatus !== 'Anulado') {
-        s.items.forEach(item => {
-          counts[item.productName] = (counts[item.productName] || 0) + item.quantity;
-        });
-      }
+    filteredSales.forEach(s => {
+      s.items.forEach(item => {
+        counts[item.productName] = (counts[item.productName] || 0) + item.quantity;
+      });
     });
     return Object.entries(counts)
       .map(([name, qty]) => ({ name, qty }))
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
-  }, [state.sales]);
+  }, [filteredSales]);
 
   const topClients = useMemo(() => {
     const totals: Record<string, number> = {};
-    state.sales.forEach(s => {
-      if (s.saleStatus !== 'Anulado') {
-        totals[s.clientName] = (totals[s.clientName] || 0) + s.total;
-      }
+    filteredSales.forEach(s => {
+      totals[s.clientName] = (totals[s.clientName] || 0) + s.total;
     });
     return Object.entries(totals)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
-  }, [state.sales]);
+  }, [filteredSales]);
 
   const pieData = [
     { name: 'Cancelado', value: stats.canceledSales },
@@ -115,7 +157,7 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-gray-800 dark:text-white">Panel de Control</h2>
-          <p className="text-gray-500 dark:text-gray-400">Resumen operativo Frutería Olga</p>
+          <p className="text-gray-500 dark:text-gray-400">Resumen operativo Frutería Olga ({filter === 'Día' ? 'Hoy' : filter === 'Mes' ? 'Este Mes' : 'Este Año'})</p>
         </div>
         <div className="flex bg-white dark:bg-gray-800 p-1 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           {['Día', 'Mes', 'Año'].map((f) => (
@@ -131,7 +173,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KpiCard title="Venta Total" value={formatMoney(stats.totalSales)} icon={TrendingUp} color="green" />
+        <KpiCard title={`Venta ${filter}`} value={formatMoney(stats.totalSales)} icon={TrendingUp} color="green" />
         <KpiCard title="Pendientes Cobro" value={formatMoney(stats.pendingSales)} icon={Clock} color="yellow" />
         <KpiCard title="Documentos Emitidos" value={stats.docsEmitidos.toString()} icon={FileCheck} color="blue" />
         <KpiCard title="Documentos Pendientes" value={stats.docsPendientes.toString()} icon={FileWarning} color="red" />
@@ -148,11 +190,11 @@ const Dashboard: React.FC = () => {
             <div className="p-2 bg-primary-100 dark:bg-primary-900/30 text-primary-600 rounded-xl">
               <Activity size={20} />
             </div>
-            <h3 className="text-lg font-black text-gray-800 dark:text-white">Venta Mensual Cantidad</h3>
+            <h3 className="text-lg font-black text-gray-800 dark:text-white">Tendencia Cantidad ({filter})</h3>
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlySalesData} margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
+              <AreaChart data={dynamicChartData} margin={{ top: 20, right: 30, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
@@ -164,8 +206,8 @@ const Dashboard: React.FC = () => {
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  interval={0}
-                  tick={{fill: isDark ? '#9ca3af' : '#6b7280', fontWeight: 'bold'}} 
+                  interval={filter === 'Mes' ? 2 : 0}
+                  tick={{fill: isDark ? '#9ca3af' : '#6b7280', fontWeight: 'bold', fontSize: 10}} 
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: isDark ? '#9ca3af' : '#6b7280'}} hide />
                 <Tooltip 
@@ -183,7 +225,7 @@ const Dashboard: React.FC = () => {
                     dataKey="cantidad" 
                     position="top" 
                     formatter={(v: number) => v > 0 ? v : ''}
-                    style={{ fill: isDark ? '#ffffff' : '#16a34a', fontWeight: 'black', fontSize: '11px' }} 
+                    style={{ fill: isDark ? '#ffffff' : '#16a34a', fontWeight: 'black', fontSize: '9px' }} 
                   />
                 </Area>
               </AreaChart>
@@ -196,18 +238,18 @@ const Dashboard: React.FC = () => {
             <div className="p-2 bg-primary-100 dark:bg-primary-900/30 text-primary-600 rounded-xl">
               <Landmark size={20} />
             </div>
-            <h3 className="text-lg font-black text-gray-800 dark:text-white">Venta Mensual Monto</h3>
+            <h3 className="text-lg font-black text-gray-800 dark:text-white">Tendencia Monto ({filter})</h3>
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlySalesData} margin={{ top: 40, right: 10, left: 10, bottom: 0 }}>
+              <BarChart data={dynamicChartData} margin={{ top: 40, right: 10, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  interval={0}
-                  tick={{fill: isDark ? '#9ca3af' : '#6b7280', fontWeight: 'bold'}} 
+                  interval={filter === 'Mes' ? 2 : 0}
+                  tick={{fill: isDark ? '#9ca3af' : '#6b7280', fontWeight: 'bold', fontSize: 10}} 
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: isDark ? '#9ca3af' : '#6b7280'}} hide />
                 <Tooltip 
@@ -220,7 +262,7 @@ const Dashboard: React.FC = () => {
                     dataKey="ventas" 
                     position="top" 
                     formatter={(v: number) => v > 0 ? `S/ ${v.toLocaleString()}` : ''}
-                    style={{ fill: isDark ? '#ffffff' : '#16a34a', fontWeight: 'black', fontSize: '11px' }} 
+                    style={{ fill: isDark ? '#ffffff' : '#16a34a', fontWeight: 'black', fontSize: '9px' }} 
                   />
                 </Bar>
               </BarChart>
@@ -231,7 +273,7 @@ const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-black mb-6 text-gray-800 dark:text-white">Estado Financiero de Ventas</h3>
+          <h3 className="text-lg font-black mb-6 text-gray-800 dark:text-white">Estado Financiero ({filter})</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
@@ -266,7 +308,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-black mb-6 text-gray-800 dark:text-white">Frutas más Vendidas</h3>
+          <h3 className="text-lg font-black mb-6 text-gray-800 dark:text-white">Frutas más Vendidas ({filter})</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={topFruits} margin={{ left: 40, right: 40 }}>
@@ -290,14 +332,12 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-
       <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="text-lg font-black mb-6 text-gray-800 dark:text-white">Top Clientes (Mayor Compra)</h3>
+        <h3 className="text-lg font-black mb-6 text-gray-800 dark:text-white">Top Clientes ({filter})</h3>
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={topClients} margin={{ top: 25 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
-              {/* tickFormatter añadido para mostrar solo el primer nombre */}
               <XAxis 
                 dataKey="name" 
                 axisLine={false} 
