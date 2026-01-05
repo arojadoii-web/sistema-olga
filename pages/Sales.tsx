@@ -148,7 +148,6 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
         </div>
       </div>
       
-      {/* Vista móvil */}
       <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
         {paginatedSales.length === 0 ? (
           <div className="p-20 text-center text-gray-400 font-bold italic uppercase tracking-widest text-xs">Vacio</div>
@@ -192,7 +191,6 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
         )}
       </div>
 
-      {/* Vista desktop */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-gray-50 dark:bg-gray-700/50 text-[10px] font-black uppercase text-gray-400 tracking-widest">
@@ -587,7 +585,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
     setIsGenerating(true);
     try {
       const { jsPDF } = (window as any).jspdf;
-      const doc = new jsPDF();
+      const doc = new jsPDF('landscape'); // Cambiamos a landscape para más espacio
       
       const filtered = sales.filter(s => {
         const dateMatch = s.date >= fromDate && s.date <= toDate;
@@ -603,35 +601,55 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
 
       doc.setFontSize(22);
       doc.setTextColor(22, 163, 74);
-      doc.text('FRUTERÍA OLGA', 105, 20, { align: 'center' });
+      doc.text('FRUTERÍA OLGA', 148, 20, { align: 'center' });
       
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text('REPORTE DE VENTAS CLOUD', 105, 28, { align: 'center' });
+      doc.text('REPORTE DETALLADO DE VENTAS CLOUD', 148, 28, { align: 'center' });
       
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Periodo: ${fromDate} - ${toDate}`, 20, 45);
+      doc.text(`Periodo: ${fromDate} - ${toDate}`, 20, 40);
 
-      const tableRows = filtered.map(s => [
-        s.date,
-        s.documentNumber,
-        s.clientName,
-        formatMoney(s.total)
-      ]);
+      const tableRows: any[] = [];
+      let grandTotal = 0;
 
-      (doc as any).autoTable({
-        startY: 55,
-        head: [['FECHA', 'DOC', 'CLIENTE', 'TOTAL']],
-        body: tableRows,
-        theme: 'striped',
-        headStyles: { fillColor: [22, 163, 74] }
+      filtered.forEach(s => {
+        s.items.forEach(item => {
+          tableRows.push([
+            s.date,
+            s.documentNumber,
+            s.clientName,
+            item.productName,
+            `${item.quantity} ${item.unit}`,
+            formatMoney(item.unitPrice),
+            formatMoney(item.total)
+          ]);
+          grandTotal += item.total;
+        });
       });
 
-      doc.save(`Reporte_Olga_${new Date().getTime()}.pdf`);
+      (doc as any).autoTable({
+        startY: 50,
+        head: [['FECHA', 'DOC', 'CLIENTE', 'PRODUCTO', 'CANT.', 'P.UNIT', 'SUBTOTAL']],
+        body: tableRows,
+        theme: 'striped',
+        headStyles: { fillColor: [22, 163, 74], fontSize: 9 },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          6: { halign: 'right', fontStyle: 'bold' }
+        }
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 70;
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TOTAL GENERAL REPORTE: ${formatMoney(grandTotal)}`, 280, finalY + 10, { align: 'right' });
+
+      doc.save(`Reporte_Detallado_Olga_${new Date().getTime()}.pdf`);
       onClose();
     } catch (err) {
-      alert("Error PDF");
+      alert("Error al generar PDF detallado");
     } finally {
       setIsGenerating(false);
     }
@@ -643,7 +661,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
         <div className="p-10 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/30">
           <div>
             <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">Reporte PDF</h3>
-            <p className="text-[10px] text-primary-600 font-black uppercase tracking-widest mt-1">Configuración de Filtros</p>
+            <p className="text-[10px] text-primary-600 font-black uppercase tracking-widest mt-1">Configuración de Filtros Detallados</p>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-2xl transition-all">
             <XCircle size={28} />
@@ -679,7 +697,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
             className="px-12 py-4 bg-primary-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-primary-600/30 active:scale-95 disabled:opacity-50"
           >
             {isGenerating ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-            Descargar PDF
+            Descargar PDF Detallado
           </button>
         </div>
       </div>
