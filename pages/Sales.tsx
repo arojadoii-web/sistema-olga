@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { 
   Plus, Search, Eye, XCircle, Trash2, Printer, Edit2,
   PlusCircle, User, FileText, Calendar, Tag, CheckCircle2, Loader2,
-  ChevronLeft, ChevronRight, Download, Package
+  ChevronLeft, ChevronRight, Download, Package, Phone
 } from 'lucide-react';
 import { Sale, SaleItem, Product, Client, DocumentType, SaleStatus, ServiceType, DocStatus } from '../types';
 
@@ -104,6 +104,13 @@ const Sales: React.FC = () => {
   );
 };
 
+// Función auxiliar para formatear fecha de YYYY-MM-DD a DD/MM/YYYY
+const displayDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
+
 const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, onView: (s: Sale) => void, onEdit: (s: Sale) => void, onCancel: (id: string) => Promise<void> }> = ({ sales, formatMoney, onView, onEdit, onCancel }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -156,7 +163,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
             <div key={sale.id} className="p-6 space-y-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{sale.date}</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{displayDate(sale.date)}</p>
                   <p className="font-black text-gray-900 dark:text-white leading-tight">{sale.clientName}</p>
                   <p className="text-[10px] font-bold text-primary-600 uppercase mt-1">{sale.documentType} {sale.documentNumber}</p>
                 </div>
@@ -207,7 +214,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {paginatedSales.map((sale) => (
               <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                <td className="px-8 py-5 text-sm font-bold text-gray-900 dark:text-white">{sale.date}</td>
+                <td className="px-8 py-5 text-sm font-bold text-gray-900 dark:text-white">{displayDate(sale.date)}</td>
                 <td className="px-8 py-5">
                   <div className="text-sm font-black text-gray-900 dark:text-white uppercase">{sale.clientName}</div>
                   <div className="text-[10px] text-gray-400 font-bold">{sale.clientDocType}: {sale.clientDocNumber}</div>
@@ -585,7 +592,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
     setIsGenerating(true);
     try {
       const { jsPDF } = (window as any).jspdf;
-      const doc = new jsPDF('landscape'); // Cambiamos a landscape para más espacio
+      const doc = new jsPDF('landscape'); 
       
       const filtered = sales.filter(s => {
         const dateMatch = s.date >= fromDate && s.date <= toDate;
@@ -609,7 +616,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
       
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Periodo: ${fromDate} - ${toDate}`, 20, 40);
+      doc.text(`Periodo: ${displayDate(fromDate)} - ${displayDate(toDate)}`, 20, 40);
 
       const tableRows: any[] = [];
       let grandTotal = 0;
@@ -617,7 +624,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
       filtered.forEach(s => {
         s.items.forEach(item => {
           tableRows.push([
-            s.date,
+            displayDate(s.date),
             s.documentNumber,
             s.clientName,
             item.productName,
@@ -711,20 +718,49 @@ const SaleDetailModal: React.FC<{ sale: Sale, onClose: () => void, formatMoney: 
       <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/10">
         <div className="p-10 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/30">
           <div>
-            <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">Detalle</h3>
+            <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">Detalle de Venta</h3>
             <p className="text-[10px] font-black text-primary-600 uppercase mt-1 tracking-widest">{sale.documentType} #{sale.documentNumber}</p>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-2xl transition-all"><XCircle size={28} className="text-gray-300" /></button>
         </div>
         
         <div className="p-10 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-2 gap-8">
-            <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Cliente</p><p className="font-black text-gray-900 dark:text-white uppercase">{sale.clientName}</p></div>
-            <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Fecha</p><p className="font-black text-gray-900 dark:text-white">{sale.date}</p></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Cliente</p>
+                <p className="font-black text-gray-900 dark:text-white uppercase leading-tight">{sale.clientName}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Teléfono / Contacto</p>
+                <div className="flex items-center gap-2 text-primary-600 font-bold">
+                  <Phone size={14} />
+                  <span>{sale.contact || 'No registrado'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Fecha de Registro</p>
+                <p className="font-black text-gray-900 dark:text-white">{displayDate(sale.date)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Estado Operativo</p>
+                <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase ${
+                  sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
+                  sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                }`}>
+                  {sale.saleStatus}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-3">
-             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Productos</p>
+             <div className="flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 pb-2">
+               <Package size={14} className="text-primary-600" />
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Artículos del Pedido</p>
+             </div>
              <div className="divide-y divide-gray-100 dark:divide-gray-700">
                {sale.items.map((item, idx) => (
                  <div key={idx} className="py-4 flex justify-between items-center">

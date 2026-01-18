@@ -22,6 +22,13 @@ const Purchases: React.FC = () => {
     return `${symbol} ${amount.toFixed(2).replace(',', '.')}`;
   };
 
+  // Función auxiliar para formatear fecha de YYYY-MM-DD a DD/MM/YYYY
+  const displayDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   const filteredPurchases = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return state.purchases.filter(p => 
@@ -92,7 +99,7 @@ const Purchases: React.FC = () => {
               ) : (
                 paginatedPurchases.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{p.date}</td>
+                    <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{displayDate(p.date)}</td>
                     <td className="px-6 py-4 text-gray-800 dark:text-gray-200">{p.supplierName}</td>
                     <td className="px-6 py-4 font-mono text-gray-700 dark:text-gray-300">{p.documentNumber}</td>
                     <td className="px-6 py-4 text-right font-black text-primary-600">{formatMoney(p.total)}</td>
@@ -158,6 +165,7 @@ const Purchases: React.FC = () => {
           suppliers={state.suppliers} 
           onClose={() => setSelectedPurchase(null)} 
           formatMoney={formatMoney} 
+          displayDate={displayDate}
         />
       )}
     </div>
@@ -375,7 +383,7 @@ const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], fo
   );
 };
 
-const PurchaseDetailModal: React.FC<{ purchase: Purchase, suppliers: Supplier[], onClose: () => void, formatMoney: (n: number) => string }> = ({ purchase, suppliers, onClose, formatMoney }) => {
+const PurchaseDetailModal: React.FC<{ purchase: Purchase, suppliers: Supplier[], onClose: () => void, formatMoney: (n: number) => string, displayDate: (d: string) => string }> = ({ purchase, suppliers, onClose, formatMoney, displayDate }) => {
   const supplier = suppliers.find(s => s.id === purchase.supplierId);
 
   return (
@@ -393,7 +401,7 @@ const PurchaseDetailModal: React.FC<{ purchase: Purchase, suppliers: Supplier[],
         
         <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div><p className="text-[10px] font-black text-gray-400 uppercase">Fecha</p><p className="font-bold text-sm text-gray-900 dark:text-white">{purchase.date}</p></div>
+            <div><p className="text-[10px] font-black text-gray-400 uppercase">Fecha</p><p className="font-bold text-sm text-gray-900 dark:text-white">{displayDate(purchase.date)}</p></div>
             <div><p className="text-[10px] font-black text-gray-400 uppercase">Proveedor</p><p className="font-bold text-sm text-gray-900 dark:text-white">{purchase.supplierName}</p></div>
             <div><p className="text-[10px] font-black text-gray-400 uppercase">RUC / DNI</p><p className="font-bold text-sm text-gray-900 dark:text-white font-mono">{supplier?.ruc || '-'}</p></div>
             <div><p className="text-[10px] font-black text-gray-400 uppercase">Estado</p><p className={`font-black text-sm ${purchase.status === 'Completado' ? 'text-green-600' : 'text-red-600'}`}>{purchase.status}</p></div>
