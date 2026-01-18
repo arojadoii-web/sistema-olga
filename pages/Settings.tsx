@@ -97,6 +97,15 @@ const Settings: React.FC = () => {
             delete newItem.photo;
           }
 
+          // FORMATEO DE FECHA: Convertir YYYY-MM-DD a DD/MM/AAAA para el Excel
+          if (newItem.date && typeof newItem.date === 'string') {
+            const dateParts = newItem.date.split('-');
+            if (dateParts.length === 3) {
+              const [year, month, day] = dateParts;
+              newItem.date = `${day}/${month}/${year}`;
+            }
+          }
+
           // Convertimos cualquier objeto o array anidado a string (como los items de venta)
           Object.keys(newItem).forEach(key => {
             if (newItem[key] !== null && typeof newItem[key] === 'object') {
