@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { 
   LayoutDashboard, ShoppingCart, Truck, Apple, Users, Briefcase, Settings, 
   Menu, X, LogOut, Moon, Sun, DollarSign, Wallet, Bell, Search, PlusCircle,
-  Cloud, CloudOff, RefreshCw, UserCircle
+  Cloud, CloudOff, RefreshCw, UserCircle, ChevronRight, ChevronLeft
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -16,12 +16,19 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) => {
   const { state, isCloudConnected, setTheme, setCurrency, logout, refreshCloudData } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true); // Barra colapsada por defecto
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshCloudData();
     setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  const handleMenuClick = (id: string) => {
+    setActivePage(id);
+    setIsCollapsed(false); // Al seleccionar un icono se expande a su tamaño natural
+    setSidebarOpen(false);
   };
 
   const menuItems = [
@@ -45,55 +52,75 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
         />
       )}
 
-      {/* Sidebar - Optimizado para touch */}
+      {/* Sidebar - Ahora colapsable */}
       <aside className={`
-        fixed md:relative inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
-        transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0
+        fixed md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
+        transition-all duration-300 ease-in-out shrink-0
+        ${sidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
+        ${!sidebarOpen && (isCollapsed ? 'md:w-20' : 'md:w-72')}
       `}>
-        <div className="h-full flex flex-col">
-          <div className="p-8 flex items-center justify-between md:justify-start gap-4 shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-600/20">
+        <div className="h-full flex flex-col overflow-hidden">
+          {/* Logo y Botón de Toggle */}
+          <div className={`p-4 flex items-center shrink-0 ${isCollapsed ? 'justify-center' : 'justify-between'} mt-2`}>
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-600/20 shrink-0">
                 FO
               </div>
-              <div>
-                <h1 className="font-black text-xl leading-tight tracking-tighter">Frutería Olga</h1>
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary-600">Admin Cloud</span>
-              </div>
+              {!isCollapsed && (
+                <div className="animate-in fade-in slide-in-from-left-2 duration-300">
+                  <h1 className="font-black text-lg leading-tight tracking-tighter whitespace-nowrap">Frutería Olga</h1>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-primary-600">Admin Cloud</span>
+                </div>
+              )}
             </div>
-            <button className="md:hidden p-3 -mr-2 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setSidebarOpen(false)}>
+            
+            {/* Botón para colapsar/expandir manualmente en Desktop */}
+            <button 
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="hidden md:flex p-2 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-400 hover:text-primary-600 transition-colors"
+            >
+              {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </button>
+
+            <button className="md:hidden p-3 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setSidebarOpen(false)}>
               <X size={28} />
             </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-2 custom-scrollbar">
+          <nav className="flex-1 px-3 space-y-1 overflow-y-auto py-6 custom-scrollbar">
             {menuItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActivePage(item.id);
-                  setSidebarOpen(false);
-                }}
+                onClick={() => handleMenuClick(item.id)}
+                title={isCollapsed ? item.label : ''}
                 className={`
-                  w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95
+                  w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all active:scale-95
                   ${activePage === item.id 
                     ? 'bg-primary-600 text-white shadow-xl shadow-primary-600/30' 
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
+                  ${isCollapsed ? 'justify-center' : 'justify-start'}
                 `}
               >
-                <item.icon size={22} strokeWidth={activePage === item.id ? 2.5 : 2} />
-                <span className="font-bold text-sm tracking-tight">{item.label}</span>
+                <item.icon size={22} strokeWidth={activePage === item.id ? 2.5 : 2} className="shrink-0" />
+                {!isCollapsed && (
+                  <span className="font-bold text-sm tracking-tight whitespace-nowrap animate-in fade-in duration-300">
+                    {item.label}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
 
-          <div className="p-6 border-t border-gray-100 dark:border-gray-700 shrink-0">
+          <div className="p-4 border-t border-gray-100 dark:border-gray-700 shrink-0">
             <button 
               onClick={logout}
-              className="w-full flex items-center justify-center gap-3 px-4 py-4 text-red-500 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 rounded-2xl transition-all font-black text-xs uppercase tracking-widest"
+              className={`
+                w-full flex items-center gap-3 px-4 py-4 text-red-500 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 rounded-2xl transition-all font-black text-xs uppercase tracking-widest
+                ${isCollapsed ? 'justify-center' : 'justify-center'}
+              `}
             >
-              <LogOut size={18} />
-              Cerrar Sesión
+              <LogOut size={18} className="shrink-0" />
+              {!isCollapsed && <span className="animate-in fade-in">Cerrar Sesión</span>}
             </button>
           </div>
         </div>

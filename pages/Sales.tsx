@@ -107,7 +107,9 @@ const Sales: React.FC = () => {
 // Función auxiliar para formatear fecha de YYYY-MM-DD a DD/MM/YYYY
 const displayDate = (dateStr: string) => {
   if (!dateStr) return '';
-  const [year, month, day] = dateStr.split('-');
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [year, month, day] = parts;
   return `${day}/${month}/${year}`;
 };
 
@@ -664,7 +666,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-white/20">
+      <div className="bg-white dark:bg-gray-800 w-full max-lg rounded-[3rem] shadow-2xl overflow-hidden border border-white/20">
         <div className="p-10 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/30">
           <div>
             <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">Reporte PDF</h3>
