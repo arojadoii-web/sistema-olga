@@ -104,7 +104,6 @@ const Sales: React.FC = () => {
   );
 };
 
-// Función auxiliar para formatear fecha de YYYY-MM-DD a DD/MM/YYYY
 const displayDate = (dateStr: string) => {
   if (!dateStr) return '';
   const parts = dateStr.split('-');

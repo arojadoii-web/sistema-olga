@@ -16,7 +16,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) => {
   const { state, isCloudConnected, setTheme, setCurrency, logout, refreshCloudData } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(true); // Barra colapsada por defecto
+  const [isCollapsed, setIsCollapsed] = useState(true); // Retraída por defecto
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -27,7 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
 
   const handleMenuClick = (id: string) => {
     setActivePage(id);
-    setIsCollapsed(false); // Al seleccionar un icono se expande a su tamaño natural
+    setIsCollapsed(false); // Se expande automáticamente al seleccionar
     setSidebarOpen(false);
   };
 
@@ -52,7 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
         />
       )}
 
-      {/* Sidebar - Ahora colapsable */}
+      {/* Sidebar Colapsable */}
       <aside className={`
         fixed md:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
         transition-all duration-300 ease-in-out shrink-0
@@ -60,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
         ${!sidebarOpen && (isCollapsed ? 'md:w-20' : 'md:w-72')}
       `}>
         <div className="h-full flex flex-col overflow-hidden">
-          {/* Logo y Botón de Toggle */}
+          {/* Logo y Control */}
           <div className={`p-4 flex items-center shrink-0 ${isCollapsed ? 'justify-center' : 'justify-between'} mt-2`}>
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-600/20 shrink-0">
@@ -74,7 +74,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
               )}
             </div>
             
-            {/* Botón para colapsar/expandir manualmente en Desktop */}
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="hidden md:flex p-2 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-400 hover:text-primary-600 transition-colors"
@@ -92,7 +91,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
               <button
                 key={item.id}
                 onClick={() => handleMenuClick(item.id)}
-                title={isCollapsed ? item.label : ''}
                 className={`
                   w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all active:scale-95
                   ${activePage === item.id 
@@ -126,14 +124,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <header className="h-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
           <div className="flex items-center gap-3">
             <button 
               className="md:hidden p-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-400 active:scale-90 transition-transform flex items-center justify-center"
               onClick={() => setSidebarOpen(true)}
-              aria-label="Abrir menú"
             >
               <Menu size={26} />
             </button>

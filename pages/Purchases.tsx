@@ -22,7 +22,6 @@ const Purchases: React.FC = () => {
     return `${symbol} ${amount.toFixed(2).replace(',', '.')}`;
   };
 
-  // Función auxiliar para formatear fecha de YYYY-MM-DD a DD/MM/YYYY
   const displayDate = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -126,7 +125,6 @@ const Purchases: React.FC = () => {
             </tbody>
           </table>
           
-          {/* Paginación */}
           {totalPages > 1 && (
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -361,7 +359,7 @@ const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], fo
               ))}
             </tbody>
           </table>
-          {items.length === 0 && <p className="text-center py-12 text-gray-400 font-bold italic text-sm">No hay productos en la lista de compra.</p>}
+          {items.length === 0 && <p className="text-center py-12 text-gray-400 italic">No hay productos en la lista de compra.</p>}
         </div>
 
         <div className="mt-8 text-right pt-6 border-t border-gray-100 dark:border-gray-700">
