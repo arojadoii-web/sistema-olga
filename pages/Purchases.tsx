@@ -61,7 +61,7 @@ const Purchases: React.FC = () => {
         ) : (
           <button 
             onClick={() => setView('list')}
-            className="text-gray-600 dark:text-gray-400 hover:text-primary-600 font-bold flex items-center gap-2"
+            className="text-gray-600 dark:text-gray-400 hover:text-primary-600 font-bold flex items-center gap-2 transition-all"
           >
             <XCircle size={20} />
             Cancelar y volver
@@ -113,9 +113,9 @@ const Purchases: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setSelectedPurchase(p)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl" title="Ver Detalle"><Eye size={18} /></button>
+                        <button onClick={() => setSelectedPurchase(p)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all" title="Ver Detalle"><Eye size={18} /></button>
                         {p.status !== 'Anulado' && (
-                          <button onClick={() => cancelPurchase(p.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl" title="Anular Compra"><XCircle size={18} /></button>
+                          <button onClick={() => cancelPurchase(p.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all" title="Anular Compra"><XCircle size={18} /></button>
                         )}
                       </div>
                     </td>
@@ -174,8 +174,12 @@ const Purchases: React.FC = () => {
 
 const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], formatMoney: (n: number) => string, onSave: (p: Purchase) => Promise<void>, onCancel: () => void }> = ({ suppliers, products, formatMoney, onSave, onCancel }) => {
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Se obtiene la fecha actual en formato YYYY-MM-DD usando la configuración regional sueca (ISO local)
+  const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
+
   const [formData, setFormData] = useState({
-    date: "2026-01-28",
+    date: getTodayDate(),
     supplierId: '',
     supplierRuc: '',
     supplierContact: '',
@@ -293,7 +297,7 @@ const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], fo
       <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex justify-between items-center mb-6">
            <h3 className="font-black text-primary-600 text-xs tracking-widest uppercase">Items de Abastecimiento</h3>
-           <button type="button" onClick={addItem} className="text-primary-600 font-bold text-sm flex items-center gap-1 hover:underline">
+           <button type="button" onClick={addItem} className="text-primary-600 font-bold text-sm flex items-center gap-1 hover:underline transition-all active:scale-95">
              <Plus size={16} /> Agregar Fila
            </button>
         </div>
@@ -353,7 +357,7 @@ const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], fo
                     <span className="text-xs font-black text-primary-600">{formatMoney(item.total)}</span>
                   </td>
                   <td className="py-3 pl-2 text-center">
-                    <button type="button" onClick={() => removeItem(i)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                    <button type="button" onClick={() => removeItem(i)} title="Eliminar Fila" className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={14} /></button>
                   </td>
                 </tr>
               ))}
@@ -369,11 +373,11 @@ const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], fo
       </div>
 
       <div className="flex justify-end gap-4">
-        <button type="button" disabled={isSaving} onClick={onCancel} className="px-8 py-4 rounded-2xl font-bold bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">Cancelar</button>
+        <button type="button" disabled={isSaving} onClick={onCancel} className="px-8 py-4 rounded-2xl font-bold bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 transition-all active:scale-95">Cancelar</button>
         <button 
           type="submit" 
           disabled={isSaving}
-          className="px-12 py-4 rounded-2xl font-black bg-primary-600 text-white shadow-xl shadow-primary-600/30 transition-all hover:scale-105 flex items-center gap-2 disabled:opacity-50"
+          className="px-12 py-4 rounded-2xl font-black bg-primary-600 text-white shadow-xl shadow-primary-600/30 transition-all hover:scale-105 flex items-center gap-2 disabled:opacity-50 active:scale-95"
         >
           {isSaving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
           {isSaving ? 'Sincronizando...' : 'Registrar Compra'}
@@ -394,12 +398,12 @@ const PurchaseDetailModal: React.FC<{ purchase: Purchase, suppliers: Supplier[],
             <h3 className="text-2xl font-black text-gray-800 dark:text-white">Detalle de Abastecimiento</h3>
             <p className="text-sm text-gray-500">Documento #{purchase.documentNumber}</p>
           </div>
-          <button onClick={onClose} className="p-3 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-2xl transition-all">
+          <button onClick={onClose} title="Cerrar" className="p-3 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-2xl transition-all">
             <XCircle size={28} className="text-gray-400" />
           </button>
         </div>
         
-        <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto">
+        <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div><p className="text-[10px] font-black text-gray-400 uppercase">Fecha</p><p className="font-bold text-sm text-gray-900 dark:text-white">{displayDate(purchase.date)}</p></div>
             <div><p className="text-[10px] font-black text-gray-400 uppercase">Proveedor</p><p className="font-bold text-sm text-gray-900 dark:text-white">{purchase.supplierName}</p></div>
@@ -445,8 +449,8 @@ const PurchaseDetailModal: React.FC<{ purchase: Purchase, suppliers: Supplier[],
         </div>
         
         <div className="p-8 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-4">
-          <button onClick={onClose} className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white">Cerrar</button>
-          <button className="px-10 py-3 bg-primary-600 text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-primary-600/30">
+          <button onClick={onClose} className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white transition-all active:scale-95">Cerrar</button>
+          <button className="px-10 py-3 bg-primary-600 text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-primary-600/30 transition-all active:scale-95">
             <Printer size={20} /> Imprimir Comprobante
           </button>
         </div>

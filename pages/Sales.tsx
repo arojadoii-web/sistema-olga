@@ -302,8 +302,11 @@ const NewSaleForm: React.FC<{
   const [docSuggestions, setDocSuggestions] = useState<Client[]>([]);
   const [productSearch, setProductSearch] = useState<{ index: number | null, term: string }>({ index: null, term: '' });
 
+  // Se obtiene la fecha actual en formato YYYY-MM-DD usando la configuración regional sueca (ISO local)
+  const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
+
   const [formData, setFormData] = useState({
-    date: initialData?.date || "2026-01-28",
+    date: initialData?.date || getTodayDate(),
     guideNumber: initialData?.guideNumber || '',
     clientId: initialData?.clientId || '',
     service: initialData?.service || 'Venta de Frutas' as ServiceType,
@@ -458,7 +461,7 @@ const NewSaleForm: React.FC<{
 
         <div className="md:col-span-2">
           <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">N° Comprobante</label>
-          <input type="text" value={formData.documentNumber} onChange={e => setFormData({...formData, documentNumber: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs uppercase" placeholder="F001-XXXX" />
+          <input type="text" value={formData.documentNumber} onChange={e => setFormData({...formData, documentNumber: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs uppercase" placeholder="F001-XXXX" />
         </div>
 
         <div className="md:col-span-1">
