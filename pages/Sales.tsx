@@ -144,7 +144,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
   return (
     <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div className="p-6 md:p-8 border-b border-gray-100 dark:border-gray-700">
-        <div className="relative w-full max-w-md">
+        <div className="relative w-full max-md">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input 
             type="text" 
@@ -186,10 +186,10 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => onView(sale)} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Ver</button>
-                <button onClick={() => onEdit(sale)} className="flex-1 py-3 bg-primary-50 dark:bg-primary-900/20 rounded-xl text-xs font-black uppercase tracking-widest text-primary-600">Editar</button>
+                <button onClick={() => onView(sale)} title="Ver Detalle de Venta" className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Ver</button>
+                <button onClick={() => onEdit(sale)} title="Editar Venta" className="flex-1 py-3 bg-primary-50 dark:bg-primary-900/20 rounded-xl text-xs font-black uppercase tracking-widest text-primary-600">Editar</button>
                 {sale.saleStatus !== 'Anulado' && (
-                  <button onClick={() => handleCancelClick(sale.id)} className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl">
+                  <button onClick={() => handleCancelClick(sale.id)} title="Anular Venta" className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl">
                     <XCircle size={18} />
                   </button>
                 )}
@@ -242,12 +242,13 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
                 </td>
                 <td className="px-8 py-5">
                   <div className="flex items-center justify-center gap-3">
-                    <button onClick={() => onView(sale)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Eye size={18} /></button>
-                    <button onClick={() => onEdit(sale)} className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
+                    <button onClick={() => onView(sale)} title="Ver Detalle de Venta" className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Eye size={18} /></button>
+                    <button onClick={() => onEdit(sale)} title="Editar Venta" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
                     {sale.saleStatus !== 'Anulado' && (
                       <button 
                         disabled={isCancelling === sale.id}
                         onClick={() => handleCancelClick(sale.id)} 
+                        title="Anular Venta"
                         className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl disabled:opacity-50"
                       >
                         {isCancelling === sale.id ? <Loader2 className="animate-spin" size={18} /> : <XCircle size={18} />}
@@ -302,7 +303,7 @@ const NewSaleForm: React.FC<{
   const [productSearch, setProductSearch] = useState<{ index: number | null, term: string }>({ index: null, term: '' });
 
   const [formData, setFormData] = useState({
-    date: initialData?.date || new Date().toISOString().split('T')[0],
+    date: initialData?.date || "2026-01-28",
     guideNumber: initialData?.guideNumber || '',
     clientId: initialData?.clientId || '',
     service: initialData?.service || 'Venta de Frutas' as ServiceType,
@@ -498,6 +499,7 @@ const NewSaleForm: React.FC<{
               <button 
                 type="button" 
                 onClick={() => removeItem(i)} 
+                title="Eliminar Item"
                 className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full shadow-lg active:scale-90"
               >
                 <Trash2 size={16} />

@@ -175,7 +175,7 @@ const Purchases: React.FC = () => {
 const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], formatMoney: (n: number) => string, onSave: (p: Purchase) => Promise<void>, onCancel: () => void }> = ({ suppliers, products, formatMoney, onSave, onCancel }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: "2026-01-28",
     supplierId: '',
     supplierRuc: '',
     supplierContact: '',
@@ -258,7 +258,7 @@ const NewPurchaseForm: React.FC<{ suppliers: Supplier[], products: Product[], fo
         
         <div>
           <label className="block text-xs font-black text-gray-400 uppercase mb-2">Fecha</label>
-          <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" />
+          <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-bold text-xs" />
         </div>
 
         <div>

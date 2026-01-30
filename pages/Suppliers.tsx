@@ -102,8 +102,12 @@ const Suppliers: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                      <div className="flex justify-center gap-2">
-                       <button onClick={() => { setEditing(s); setShowForm(true); }} className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
-                       <button onClick={() => updateSupplier({...s, active: !s.active})} className="p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+                       <button onClick={() => { setEditing(s); setShowForm(true); }} title="Editar Proveedor" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
+                       <button 
+                         onClick={() => updateSupplier({...s, active: !s.active})} 
+                         title={s.active ? "Desactivar Proveedor" : "Activar Proveedor"}
+                         className="p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-gray-700"
+                       >
                           {s.active ? <ToggleRight size={24} className="text-primary-600" /> : <ToggleLeft size={24} className="text-gray-400" />}
                        </button>
                      </div>
@@ -142,7 +146,7 @@ const Suppliers: React.FC = () => {
 
       {showForm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 w-full max-md rounded-[2.5rem] shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black text-gray-800 dark:text-white">{editing ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h3>
               <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">

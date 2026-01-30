@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppState, Product, Client, Supplier, Sale, Purchase, Currency, UserRole, SaleStatus, SystemUser } from './types';
+import { AppState, Product, Client, Supplier, Sale, Purchase, Currency, UserRole, SaleStatus, SystemUser, OperationalTask } from './types';
 import { supabase } from './supabaseClient';
 
 interface StoreContextType {
@@ -26,6 +26,8 @@ interface StoreContextType {
   cancelSale: (id: string) => Promise<void>;
   addPurchase: (purchase: Purchase) => Promise<void>;
   cancelPurchase: (id: string) => Promise<void>;
+  addTask: (task: OperationalTask) => Promise<void>;
+  updateTask: (task: OperationalTask) => Promise<void>;
   refreshCloudData: () => Promise<void>;
 }
 
@@ -57,6 +59,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     suppliers: [],
     sales: [],
     purchases: [],
+    tasks: [],
   });
 
   const loadLocalData = () => {
@@ -66,7 +69,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setState(prev => ({ 
         ...prev, 
         ...data,
-        users: data.users && data.users.length > 0 ? data.users : [INITIAL_USER]
+        users: data.users && data.users.length > 0 ? data.users : [INITIAL_USER],
+        tasks: data.tasks || []
       }));
     }
   };
@@ -79,6 +83,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       sales: newState.sales || state.sales,
       purchases: newState.purchases || state.purchases,
       users: newState.users || state.users,
+      tasks: newState.tasks || state.tasks,
     };
     localStorage.setItem('olga_backup_data', JSON.stringify(dataToSave));
   };
@@ -119,14 +124,16 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         { data: suppliers },
         { data: sales },
         { data: purchases },
-        { data: cloudUsers }
+        { data: cloudUsers },
+        { data: tasks }
       ] = await Promise.all([
         supabase.from('products').select('*').order('name'),
         supabase.from('clients').select('*').order('name'),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('sales').select('*').order('date', { ascending: false }),
         supabase.from('purchases').select('*').order('date', { ascending: false }),
-        supabase.from('users').select('*').order('name')
+        supabase.from('users').select('*').order('name'),
+        supabase.from('tasks').select('*').order('date', { ascending: true })
       ]);
 
       const newState = {
@@ -135,7 +142,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         suppliers: suppliers || [],
         sales: sales || [],
         purchases: purchases || [],
-        users: (cloudUsers && cloudUsers.length > 0) ? cloudUsers : state.users
+        users: (cloudUsers && cloudUsers.length > 0) ? cloudUsers : state.users,
+        tasks: tasks || []
       };
       
       setState(prev => {
@@ -289,6 +297,20 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await supabase.from('purchases').update({ status: 'Anulado' }).eq('id', id);
   };
 
+  const addTask = async (task: OperationalTask) => {
+    const newTasks = [...state.tasks, task];
+    setState(prev => ({ ...prev, tasks: newTasks }));
+    saveLocalData({ tasks: newTasks });
+    await supabase.from('tasks').insert([task]);
+  };
+
+  const updateTask = async (task: OperationalTask) => {
+    const newTasks = state.tasks.map(t => t.id === task.id ? task : t);
+    setState(prev => ({ ...prev, tasks: newTasks }));
+    saveLocalData({ tasks: newTasks });
+    await supabase.from('tasks').update(task).eq('id', task.id);
+  };
+
   const refreshCloudData = async () => {
     await fetchAllData();
   };
@@ -308,7 +330,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       state, loading, isCloudConnected, setTheme, setCurrency, login, logout, 
       addSystemUser, updateSystemUser, deleteSystemUser, updateUserPassword, addProduct, updateProduct, addClient, updateClient, 
       addSupplier, updateSupplier, addSale, updateSale, cancelSale, addPurchase, 
-      cancelPurchase, refreshCloudData
+      cancelPurchase, addTask, updateTask, refreshCloudData
     }}>
       {children}
     </StoreContext.Provider>

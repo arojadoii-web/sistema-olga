@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { 
   UserPlus, Search, Edit2, Trash2, Eye, XCircle, 
   CheckCircle2, ShieldCheck, Phone, FileText, UserCircle,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Sparkles, EyeOff
 } from 'lucide-react';
 import { SystemUser, UserRole } from '../types';
 
@@ -145,10 +145,10 @@ const Users: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setViewingUser(u)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl"><Eye size={18} /></button>
-                        <button onClick={() => { setEditingUser(u); setShowForm(true); }} className="p-2 text-primary-600 hover:bg-primary-50 rounded-xl"><Edit2 size={18} /></button>
+                        <button onClick={() => setViewingUser(u)} title="Ver Perfil" className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl"><Eye size={18} /></button>
+                        <button onClick={() => { setEditingUser(u); setShowForm(true); }} title="Editar Usuario" className="p-2 text-primary-600 hover:bg-primary-50 rounded-xl"><Edit2 size={18} /></button>
                         {u.id !== 'master-1' && (
-                          <button onClick={() => handleDelete(u.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 size={18} /></button>
+                          <button onClick={() => handleDelete(u.id)} title="Eliminar Acceso" className="p-2 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 size={18} /></button>
                         )}
                       </div>
                     </td>
@@ -159,7 +159,6 @@ const Users: React.FC = () => {
           </table>
         </div>
         
-        {/* Paginación */}
         {totalPages > 1 && (
           <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -186,74 +185,17 @@ const Users: React.FC = () => {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 p-8 border border-gray-100 dark:border-gray-700 overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-gray-800 dark:text-white">{editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</h3>
-              <button type="button" onClick={() => { setShowForm(false); setEditingUser(null); }} className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl">
-                <XCircle size={24} />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase mb-2">Nombre Completo</label>
-                <input name="name" defaultValue={editingUser?.name} required className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase mb-2">DNI</label>
-                  <input name="dni" defaultValue={editingUser?.dni} required className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase mb-2">Celular</label>
-                  <input name="phone" defaultValue={editingUser?.phone} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase mb-2">Área / Funciones</label>
-                <input name="functions" defaultValue={editingUser?.functions} required className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" placeholder="Ej: Ventas, Almacén" />
-              </div>
-
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-700 mt-2">
-                <label className="block text-xs font-black text-primary-600 uppercase mb-2">Credenciales de Acceso</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Usuario</label>
-                    <input name="username" defaultValue={editingUser?.username} required className="w-full px-4 py-2 rounded-xl bg-primary-50 dark:bg-primary-900/10 border-none text-sm font-black outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Contraseña</label>
-                    <input name="password" type="password" defaultValue={editingUser?.password} required className="w-full px-4 py-2 rounded-xl bg-primary-50 dark:bg-primary-900/10 border-none text-sm font-black outline-none" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase mb-2">Rol de Sistema</label>
-                <select name="role" defaultValue={editingUser?.role || 'Vendedor'} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none text-gray-900 dark:text-white font-bold">
-                  <option value="Administrador">Administrador</option>
-                  <option value="Gerente">Gerente</option>
-                  <option value="Vendedor">Vendedor</option>
-                </select>
-              </div>
-            </div>
-            
-            <div className="mt-8 flex justify-end gap-3">
-              <button type="button" onClick={() => { setShowForm(false); setEditingUser(null); }} className="px-6 py-3 bg-gray-100 dark:bg-gray-700 rounded-2xl font-bold text-gray-700 dark:text-gray-300">Cancelar</button>
-              <button type="submit" className="px-10 py-3 bg-primary-600 text-white rounded-2xl font-black shadow-lg shadow-primary-600/30 transition-all hover:scale-105">
-                {editingUser ? 'Actualizar' : 'Guardar Usuario'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <UserFormModal 
+          editingUser={editingUser} 
+          users={state.users}
+          onClose={() => { setShowForm(false); setEditingUser(null); }} 
+          onSubmit={handleSubmit}
+        />
       )}
 
       {viewingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-           <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 border border-gray-100 dark:border-gray-700 text-center relative animate-in zoom-in-95">
+           <div className="bg-white dark:bg-gray-800 w-full max-sm rounded-[2.5rem] shadow-2xl p-8 border border-gray-100 dark:border-gray-700 text-center relative animate-in zoom-in-95">
              <button onClick={() => setViewingUser(null)} className="absolute top-6 right-6 p-2 text-gray-400 hover:bg-gray-100 rounded-xl"><XCircle size={24} /></button>
              <div className="w-24 h-24 rounded-3xl bg-primary-50 mx-auto mb-4 overflow-hidden flex items-center justify-center border-4 border-white shadow-lg">
                {viewingUser.photo ? <img src={viewingUser.photo} className="w-full h-full object-cover" /> : <UserCircle size={48} className="text-primary-600" />}
@@ -284,6 +226,133 @@ const Users: React.FC = () => {
            </div>
         </div>
       )}
+    </div>
+  );
+};
+
+interface UserFormModalProps {
+  editingUser: SystemUser | null;
+  users: SystemUser[];
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+}
+
+const UserFormModal: React.FC<UserFormModalProps> = ({ editingUser, onClose, onSubmit }) => {
+  const [name, setName] = useState(editingUser?.name || '');
+  const [username, setUsername] = useState(editingUser?.username || '');
+  const [password, setPassword] = useState(editingUser?.password || '');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleAutoGenerateUsername = () => {
+    if (!name) return;
+    const firstName = name.trim().split(' ')[0].toUpperCase();
+    setUsername(`FO-${firstName}`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <form onSubmit={onSubmit} className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 p-8 border border-gray-100 dark:border-gray-700 overflow-y-auto max-h-[90vh]">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-black text-gray-800 dark:text-white">{editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</h3>
+          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl">
+            <XCircle size={24} />
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-black text-gray-400 uppercase mb-2">Nombre Completo</label>
+            <input 
+              name="name" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required 
+              className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" 
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black text-gray-400 uppercase mb-2">DNI</label>
+              <input name="dni" defaultValue={editingUser?.dni} required className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-black text-gray-400 uppercase mb-2">Celular</label>
+              <input name="phone" defaultValue={editingUser?.phone} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-xs font-black text-gray-400 uppercase mb-2">Área / Funciones</label>
+            <input name="functions" defaultValue={editingUser?.functions} required className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white" placeholder="Ej: Ventas, Almacén" />
+          </div>
+
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-700 mt-2">
+            <label className="block text-xs font-black text-primary-600 uppercase mb-2">Credenciales de Acceso</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase">Usuario</label>
+                  {!editingUser && (
+                    <button 
+                      type="button" 
+                      onClick={handleAutoGenerateUsername}
+                      title="Generar Usuario Automático"
+                      className="text-primary-600 hover:text-primary-700 flex items-center gap-0.5 text-[9px] font-black uppercase transition-all"
+                    >
+                      <Sparkles size={10} /> Auto
+                    </button>
+                  )}
+                </div>
+                <input 
+                  name="username" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required 
+                  className="w-full px-4 py-2 rounded-xl bg-primary-50 dark:bg-primary-900/10 border-none text-sm font-black outline-none" 
+                />
+              </div>
+              <div className="relative">
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Contraseña</label>
+                <div className="relative">
+                  <input 
+                    name="password" 
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required 
+                    className="w-full px-4 py-2 pr-10 rounded-xl bg-primary-50 dark:bg-primary-900/10 border-none text-sm font-black outline-none" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    title={showPassword ? "Ocultar Contraseña" : "Ver Contraseña"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-600 hover:text-primary-700 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-black text-gray-400 uppercase mb-2">Rol de Sistema</label>
+            <select name="role" defaultValue={editingUser?.role || 'Vendedor'} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none text-gray-900 dark:text-white font-bold">
+              <option value="Administrador">Administrador</option>
+              <option value="Gerente">Gerente</option>
+              <option value="Vendedor">Vendedor</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="mt-8 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-6 py-3 bg-gray-100 dark:bg-gray-700 rounded-2xl font-bold text-gray-700 dark:text-gray-300">Cancelar</button>
+          <button type="submit" className="px-10 py-3 bg-primary-600 text-white rounded-2xl font-black shadow-lg shadow-primary-600/30 transition-all hover:scale-105">
+            {editingUser ? 'Actualizar' : 'Guardar Usuario'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

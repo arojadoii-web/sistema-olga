@@ -119,7 +119,7 @@ const Products: React.FC = () => {
                         <div className="w-10 h-10 bg-primary-50 dark:bg-primary-900/20 rounded-xl flex items-center justify-center text-primary-500">
                            <Apple size={20} />
                         </div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{product.name}</p>
+                        <p className={`text-sm font-bold ${product.active ? 'text-gray-900 dark:text-white' : 'text-gray-400 line-through'}`}>{product.name}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-800 dark:text-gray-200">{product.category}</td>
@@ -134,10 +134,15 @@ const Products: React.FC = () => {
                         <button 
                           onClick={() => { setEditingProduct(product); setShowForm(true); }}
                           className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"
+                          title="Editar Producto"
                         >
                           <Edit2 size={18} />
                         </button>
-                        <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all">
+                        <button 
+                          onClick={() => updateProduct({ ...product, active: !product.active })}
+                          className={`p-2 rounded-xl transition-all ${product.active ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
+                          title={product.active ? "Archivar Producto" : "Restaurar Producto"}
+                        >
                           <Archive size={18} />
                         </button>
                       </div>
@@ -149,7 +154,6 @@ const Products: React.FC = () => {
           </table>
         </div>
         
-        {/* Paginación */}
         {totalPages > 1 && (
           <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">

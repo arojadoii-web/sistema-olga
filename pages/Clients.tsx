@@ -116,12 +116,14 @@ const Clients: React.FC = () => {
                       <div className="flex items-center justify-center gap-2">
                         <button 
                           onClick={() => { setEditingClient(client); setShowForm(true); }}
+                          title="Editar Cliente"
                           className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl"
                         >
                           <Edit2 size={18} />
                         </button>
                         <button 
                           onClick={() => updateClient({ ...client, active: !client.active })}
+                          title={client.active ? "Desactivar Cliente" : "Activar Cliente"}
                           className={`p-2 rounded-xl transition-all ${client.active ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
                         >
                           {client.active ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
@@ -163,7 +165,7 @@ const Clients: React.FC = () => {
 
       {showForm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 p-8 border border-gray-100 dark:border-gray-700">
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 w-full max-md rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 p-8 border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black text-gray-800 dark:text-white">{editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
               <button type="button" onClick={() => { setShowForm(false); setEditingClient(null); }} className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl">
