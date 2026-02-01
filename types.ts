@@ -7,6 +7,18 @@ export type ClientDocType = 'DNI' | 'RUC';
 export type ServiceType = 'Venta de Frutas' | 'Alquiler de Local';
 export type DocStatus = 'Emitido' | 'Pendiente';
 
+export type TaskType = 'CREAR BOLETAS' | 'CREAR FACTURAS' | 'PAGOS VENCIDOS' | 'TAREA ADMINISTRATIVA';
+
+export interface OperationalTask {
+  id: string;
+  date: string;
+  type: TaskType;
+  description?: string;
+  status: 'pendiente' | 'realizada';
+  frequency?: 'unico' | 'constante';
+  completedDates?: string[]; // Almacena fechas YYYY-MM-DD donde se completó (para constantes)
+}
+
 export interface SystemUser {
   id: string;
   name: string;
@@ -16,7 +28,7 @@ export interface SystemUser {
   username: string;
   password: string;
   role: UserRole;
-  photo?: string; // Campo para la fotografía en base64
+  photo?: string;
   active: boolean;
 }
 
@@ -106,4 +118,5 @@ export interface AppState {
   suppliers: Supplier[];
   sales: Sale[];
   purchases: Purchase[];
+  tasks: OperationalTask[];
 }

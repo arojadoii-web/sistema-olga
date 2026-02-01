@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -8,30 +8,40 @@ import {
 import { 
   TrendingUp, Users, ShoppingBag, Landmark, CreditCard, Clock, 
   FileCheck, FileWarning, Apple, Briefcase, Activity, Store,
-  Calendar as CalendarIcon, Plus, XCircle, CheckCircle2, ChevronLeft, ChevronRight
+  Calendar as CalendarIcon, Plus, XCircle, CheckCircle2, ChevronLeft, ChevronRight, Edit2, Trash2
 } from 'lucide-react';
 import { OperationalTask, TaskType } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { state, addTask, updateTask } = useStore();
+  const { state, addTask, updateTask, deleteTask } = useStore();
   const [filter, setFilter] = useState<'Día' | 'Mes' | 'Año'>('Mes');
   
-  // Se obtiene la fecha actual del sistema dinámicamente
   const now = new Date();
-  const todayStr = now.toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD local
-  const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
-  const currentYearStr = todayStr.substring(0, 4);  // YYYY
+  const todayStr = now.toLocaleDateString('sv-SE'); 
+  const currentMonthStr = todayStr.substring(0, 7); 
+  const currentYearStr = todayStr.substring(0, 4);
 
   const [selectedDay, setSelectedDay] = useState<string | null>(todayStr); 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [calendarView, setCalendarView] = useState(currentMonthStr);
 
-  // Helper para obtener tareas de una fecha específica (incluyendo constantes)
+  // Helper para verificar si una tarea está completada en una fecha específica
+  const isTaskCompletedOnDate = (task: OperationalTask, dateStr: string) => {
+    if (task.frequency === 'constante') {
+      return (task.completedDates || []).includes(dateStr);
+    }
+    return task.status === 'realizada';
+  };
+
+  // Lógica mejorada para obtener tareas por fecha
   const getTasksForDate = (dateStr: string) => {
     const day = dateStr.split('-')[2];
     return (state.tasks || []).filter(t => {
       if (t.frequency === 'constante') {
-        return t.date.endsWith(`-${day}`);
+        // Solo mostrar si es el mismo día del mes Y la fecha consultada es >= fecha creación
+        const isSameDay = t.date.endsWith(`-${day}`);
+        const isAfterCreation = dateStr >= t.date;
+        return isSameDay && isAfterCreation;
       }
       return t.date === dateStr;
     });
@@ -59,7 +69,7 @@ const Dashboard: React.FC = () => {
     return { totalSales, pendingSales, cancelledSales, tax, clientCount, docsEmitidos, docsPendientes, productCount, supplierCount };
   }, [filteredSales, state.clients, state.products, state.suppliers]);
 
-  // Tareas del mes actual para la barra horizontal
+  // Barra de programación del mes: Solo tareas PENDIENTES en la fecha específica
   const monthlyTasksDisplay = useMemo(() => {
     const [y, m] = currentMonthStr.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -67,7 +77,10 @@ const Dashboard: React.FC = () => {
     for (let i = 1; i <= daysInMonth; i++) {
       const dStr = `${currentMonthStr}-${String(i).padStart(2, '0')}`;
       const dayTasks = getTasksForDate(dStr);
-      dayTasks.forEach(dt => result.push({ ...dt, displayDate: dStr }));
+      
+      dayTasks
+        .filter(t => !isTaskCompletedOnDate(t, dStr))
+        .forEach(dt => result.push({ ...dt, displayDate: dStr }));
     }
     return result.sort((a, b) => a.displayDate.localeCompare(b.displayDate));
   }, [state.tasks, currentMonthStr]);
@@ -149,6 +162,19 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleToggleTaskStatus = (task: OperationalTask, dateStr: string) => {
+    if (task.frequency === 'constante') {
+      const currentCompleted = task.completedDates || [];
+      const isDone = currentCompleted.includes(dateStr);
+      const newCompleted = isDone 
+        ? currentCompleted.filter(d => d !== dateStr)
+        : [...currentCompleted, dateStr];
+      updateTask({ ...task, completedDates: newCompleted });
+    } else {
+      updateTask({ ...task, status: task.status === 'pendiente' ? 'realizada' : 'pendiente' });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
       {/* 1. HEADER */}
@@ -170,7 +196,7 @@ const Dashboard: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center gap-3 mb-6">
           <CalendarIcon size={18} className="text-primary-500" />
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Programación del Mes</p>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Programación del Mes (Pendientes)</p>
         </div>
         <div className="flex overflow-x-auto pt-3 pb-4 gap-6 custom-scrollbar scroll-smooth">
           {monthlyTasksDisplay.length > 0 ? monthlyTasksDisplay.map((t, idx) => (
@@ -179,18 +205,18 @@ const Dashboard: React.FC = () => {
                 {t.displayDate.split('-')[2]}
               </div>
               <div className="flex flex-col items-center w-full px-1">
-                <p className={`text-[8px] font-black text-gray-800 dark:text-white uppercase tracking-tighter line-clamp-2 leading-none mb-1 ${t.status === 'realizada' ? 'line-through opacity-40' : ''}`}>
+                <p className="text-[8px] font-black text-gray-800 dark:text-white uppercase tracking-tighter line-clamp-2 leading-none mb-1">
                   {t.type}
                 </p>
                 {t.description && (
-                  <p className={`text-[7px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight italic line-clamp-1 ${t.status === 'realizada' ? 'line-through opacity-40' : ''}`}>
+                  <p className="text-[7px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight italic line-clamp-1">
                     {t.description}
                   </p>
                 )}
               </div>
             </div>
           )) : (
-            <div className="w-full text-center py-2"><p className="text-[10px] text-gray-400 font-bold italic uppercase">No hay tareas programadas.</p></div>
+            <div className="w-full text-center py-2"><p className="text-[10px] text-gray-400 font-bold italic uppercase">No hay tareas pendientes.</p></div>
           )}
         </div>
       </div>
@@ -347,7 +373,10 @@ const Dashboard: React.FC = () => {
           tasks={getTasksForDate(selectedDay)} 
           onClose={() => setShowTaskModal(false)}
           onAddTask={(type, desc, freq) => addTask({ id: Date.now().toString(), date: selectedDay, type, description: desc, status: 'pendiente', frequency: freq })}
-          onToggleTask={(task) => updateTask({ ...task, status: task.status === 'pendiente' ? 'realizada' : 'pendiente' })}
+          onUpdateTask={(task) => updateTask(task)}
+          onToggleTask={(task) => handleToggleTaskStatus(task, selectedDay)}
+          onDeleteTask={(id) => deleteTask(id)}
+          isTaskCompletedOnDate={isTaskCompletedOnDate}
           isDark={isDark}
         />
       )}
@@ -441,44 +470,126 @@ const OperationalCalendar: React.FC<{
   );
 };
 
-const TaskManagementModal: React.FC<{ day: string, tasks: OperationalTask[], onClose: () => void, onAddTask: (type: TaskType, desc: string, freq: 'unico' | 'constante') => void, onToggleTask: (t: OperationalTask) => void, isDark: boolean }> = ({ day, tasks, onClose, onAddTask, onToggleTask, isDark }) => {
-  const [newType, setNewType] = useState<TaskType>('Tarea administrativa');
+const TaskManagementModal: React.FC<{ 
+  day: string, 
+  tasks: OperationalTask[], 
+  onClose: () => void, 
+  onAddTask: (type: TaskType, desc: string, freq: 'unico' | 'constante') => void, 
+  onUpdateTask: (t: OperationalTask) => void,
+  onToggleTask: (t: OperationalTask) => void,
+  onDeleteTask: (id: string) => void,
+  isTaskCompletedOnDate: (t: OperationalTask, d: string) => boolean,
+  isDark: boolean 
+}> = ({ day, tasks, onClose, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, isTaskCompletedOnDate, isDark }) => {
+  const [editingTask, setEditingTask] = useState<OperationalTask | null>(null);
+  const [newType, setNewType] = useState<TaskType>('TAREA ADMINISTRATIVA');
   const [newDesc, setNewDesc] = useState('');
   const [newFreq, setNewFreq] = useState<'unico' | 'constante'>('unico');
+
+  useEffect(() => {
+    if (editingTask) {
+      setNewType(editingTask.type);
+      setNewDesc(editingTask.description || '');
+      setNewFreq(editingTask.frequency || 'unico');
+    } else {
+      setNewType('TAREA ADMINISTRATIVA');
+      setNewDesc('');
+      setNewFreq('unico');
+    }
+  }, [editingTask]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTask) {
+      onUpdateTask({ ...editingTask, type: newType, description: newDesc, frequency: newFreq });
+      setEditingTask(null);
+    } else {
+      onAddTask(newType, newDesc, newFreq);
+      setNewDesc('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTask(null);
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in-95">
         <div className="flex justify-between items-center mb-6">
-           <div><h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Agenda Operativa</h3><p className="text-[10px] text-primary-600 font-bold">{day}</p></div>
-           <button onClick={onClose} className="text-gray-400 hover:text-red-500"><XCircle size={24} /></button>
+           <div>
+             <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Agenda Operativa</h3>
+             <p className="text-[10px] text-primary-600 font-bold">{day}</p>
+           </div>
+           <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors"><XCircle size={24} /></button>
         </div>
-        <div className="space-y-4 mb-6 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-          {tasks.map(t => (
-            <div key={t.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl text-[10px] font-black uppercase">
-              <button onClick={() => onToggleTask(t)} className={t.status === 'realizada' ? 'text-green-500' : 'text-gray-300'}><CheckCircle2 size={18} /></button>
-              <div className={`flex flex-col ${t.status === 'realizada' ? 'line-through opacity-40' : 'text-gray-700 dark:text-white'}`}>
-                <span>{t.type} {t.frequency === 'constante' ? '(CONSTANTE)' : ''}</span>
-                {t.description && <span className="text-[8px] text-gray-400 lowercase">{t.description}</span>}
+        
+        <div className="space-y-4 mb-6 max-h-56 overflow-y-auto custom-scrollbar pr-2">
+          {tasks.map(t => {
+            const isDone = isTaskCompletedOnDate(t, day);
+            return (
+              <div key={t.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl group">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => onToggleTask(t)} 
+                    title="Marcar como realizado"
+                    className={`transition-all active:scale-90 ${isDone ? 'text-green-500' : 'text-gray-300 hover:text-primary-500'}`}
+                  >
+                    <CheckCircle2 size={20} />
+                  </button>
+                  <div className={`flex flex-col ${isDone ? 'line-through opacity-40' : 'text-gray-700 dark:text-white'}`}>
+                    <span className="text-[10px] font-black uppercase">{t.type} {t.frequency === 'constante' ? '(CONSTANTE)' : ''}</span>
+                    {t.description && <span className="text-[9px] text-gray-400 leading-tight">{t.description}</span>}
+                  </div>
+                </div>
+                
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => setEditingTask(t)} 
+                    className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                    title="Editar tarea"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button 
+                    onClick={() => { if(confirm('¿Eliminar esta tarea programada?')) onDeleteTask(t.id); }} 
+                    className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                    title="Eliminar tarea"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-          {tasks.length === 0 && <p className="text-center text-[10px] text-gray-400 font-bold uppercase italic py-4">Sin tareas</p>}
+            );
+          })}
+          {tasks.length === 0 && <p className="text-center text-[10px] text-gray-400 font-bold uppercase italic py-8">Sin tareas para este día</p>}
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); onAddTask(newType, newDesc, newFreq); setNewDesc(''); }} className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
-             <select value={newType} onChange={e => setNewType(e.target.value as TaskType)} className="w-full p-3 rounded-xl bg-gray-100 text-[10px] font-black uppercase border-none focus:ring-2 focus:ring-primary-500">
-               <option value="Crear facturas">Crear facturas</option>
-               <option value="Emitir facturas pendientes">Emitir facturas pendientes</option>
-               <option value="Revisar pagos vencidos">Revisar pagos vencidos</option>
-               <option value="Tarea administrativa">Tarea administrativa</option>
-             </select>
-             <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
-                <button type="button" onClick={() => setNewFreq('unico')} className={`flex-1 py-2 text-[9px] font-black rounded-lg transition-all ${newFreq === 'unico' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-400'}`}>ÚNICO</button>
-                <button type="button" onClick={() => setNewFreq('constante')} className={`flex-1 py-2 text-[9px] font-black rounded-lg transition-all ${newFreq === 'constante' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-400'}`}>CONSTANTE</button>
+        <form onSubmit={handleSubmit} className="pt-6 border-t border-gray-100 dark:border-gray-700 space-y-4">
+             <div className="flex justify-between items-center mb-1">
+               <span className="text-[9px] font-black text-primary-600 uppercase tracking-widest">{editingTask ? 'Modificando Tarea' : 'Nueva Tarea'}</span>
+               {editingTask && (
+                 <button type="button" onClick={handleCancelEdit} className="text-[9px] font-bold text-red-500 hover:underline">Cancelar Edición</button>
+               )}
              </div>
-             <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Breve descripción..." className="w-full p-3 rounded-xl bg-gray-100 text-[10px] outline-none border-none focus:ring-2 focus:ring-primary-500" />
-             <button type="submit" className="w-full bg-primary-600 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest active:scale-95 shadow-lg shadow-primary-600/30">+ Programar</button>
+             
+             <select value={newType} onChange={e => setNewType(e.target.value as TaskType)} className="w-full p-3.5 rounded-2xl bg-gray-100 dark:bg-gray-700 text-[10px] font-black uppercase border-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-all">
+               <option value="CREAR BOLETAS">CREAR BOLETAS</option>
+               <option value="CREAR FACTURAS">CREAR FACTURAS</option>
+               <option value="PAGOS VENCIDOS">PAGOS VENCIDOS</option>
+               <option value="TAREA ADMINISTRATIVA">TAREA ADMINISTRATIVA</option>
+             </select>
+             
+             <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-2xl">
+                <button type="button" onClick={() => setNewFreq('unico')} className={`flex-1 py-2 text-[9px] font-black rounded-xl transition-all ${newFreq === 'unico' ? 'bg-white dark:bg-gray-600 text-primary-600 shadow-sm' : 'text-gray-400'}`}>ÚNICO</button>
+                <button type="button" onClick={() => setNewFreq('constante')} className={`flex-1 py-2 text-[9px] font-black rounded-xl transition-all ${newFreq === 'constante' ? 'bg-white dark:bg-gray-600 text-primary-600 shadow-sm' : 'text-gray-400'}`}>CONSTANTE</button>
+             </div>
+             
+             <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Breve descripción..." className="w-full p-3.5 rounded-2xl bg-gray-100 dark:bg-gray-700 text-[10px] outline-none border-none focus:ring-2 focus:ring-primary-500 dark:text-white transition-all" />
+             
+             <button type="submit" className={`w-full text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest active:scale-95 shadow-lg transition-all ${editingTask ? 'bg-blue-600 shadow-blue-600/30' : 'bg-primary-600 shadow-primary-600/30'}`}>
+               {editingTask ? 'Sincronizar Cambios' : '+ Programar Tarea'}
+             </button>
         </form>
       </div>
     </div>
