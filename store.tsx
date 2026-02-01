@@ -28,6 +28,7 @@ interface StoreContextType {
   cancelPurchase: (id: string) => Promise<void>;
   addTask: (task: OperationalTask) => Promise<void>;
   updateTask: (task: OperationalTask) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
   refreshCloudData: () => Promise<void>;
 }
 
@@ -62,28 +63,43 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     tasks: [],
   });
 
+  const sanitizeTasks = (tasks: any[]): OperationalTask[] => {
+    return (tasks || []).map(t => ({
+      ...t,
+      completedDates: Array.isArray(t.completedDates) ? t.completedDates : []
+    }));
+  };
+
   const loadLocalData = () => {
     const saved = localStorage.getItem('olga_backup_data');
     if (saved) {
-      const data = JSON.parse(saved);
-      setState(prev => ({ 
-        ...prev, 
-        ...data,
-        users: data.users && data.users.length > 0 ? data.users : [INITIAL_USER],
-        tasks: data.tasks || []
-      }));
+      try {
+        const data = JSON.parse(saved);
+        if (data && typeof data === 'object') {
+          setState(prev => ({ 
+            ...prev, 
+            ...data,
+            users: (Array.isArray(data.users) && data.users.length > 0) ? data.users : [INITIAL_USER],
+            tasks: sanitizeTasks(data.tasks),
+            sales: Array.isArray(data.sales) ? data.sales : [],
+            products: Array.isArray(data.products) ? data.products : []
+          }));
+        }
+      } catch (e) {
+        console.error("Error loading local data:", e);
+      }
     }
   };
 
-  const saveLocalData = (newState: Partial<AppState>) => {
+  const internalSaveToLocal = (updatedState: AppState) => {
     const dataToSave = {
-      products: newState.products || state.products,
-      clients: newState.clients || state.clients,
-      suppliers: newState.suppliers || state.suppliers,
-      sales: newState.sales || state.sales,
-      purchases: newState.purchases || state.purchases,
-      users: newState.users || state.users,
-      tasks: newState.tasks || state.tasks,
+      products: updatedState.products || [],
+      clients: updatedState.clients || [],
+      suppliers: updatedState.suppliers || [],
+      sales: updatedState.sales || [],
+      purchases: updatedState.purchases || [],
+      users: updatedState.users || [INITIAL_USER],
+      tasks: updatedState.tasks || [],
     };
     localStorage.setItem('olga_backup_data', JSON.stringify(dataToSave));
   };
@@ -136,27 +152,28 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         supabase.from('tasks').select('*').order('date', { ascending: true })
       ]);
 
-      const newState = {
+      const newStateData = {
         products: products || [],
         clients: clients || [],
         suppliers: suppliers || [],
         sales: sales || [],
         purchases: purchases || [],
-        users: (cloudUsers && cloudUsers.length > 0) ? cloudUsers : state.users,
-        tasks: tasks || []
+        users: (Array.isArray(cloudUsers) && cloudUsers.length > 0) ? cloudUsers : state.users,
+        tasks: sanitizeTasks(tasks)
       };
       
       setState(prev => {
-        const currentUserInCloud = newState.users.find(u => u.id === prev.user?.id);
-        return { 
+        const updated = { 
           ...prev, 
-          ...newState,
-          user: currentUserInCloud || prev.user
+          ...newStateData,
+          user: newStateData.users.find(u => u.id === prev.user?.id) || prev.user
         };
+        internalSaveToLocal(updated);
+        return updated;
       });
-      saveLocalData(newState);
       setIsCloudConnected(true);
     } catch (error) {
+      console.error("Error fetching data:", error);
       setIsCloudConnected(false);
       loadLocalData();
     } finally {
@@ -165,7 +182,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const login = async (username: string, password: string) => {
-    const userMatch = state.users.find(u => u.username === username && u.password === password && u.active);
+    const users = Array.isArray(state.users) ? state.users : [INITIAL_USER];
+    const userMatch = users.find(u => u.username === username && u.password === password && u.active);
     if (userMatch) {
       setState(prev => ({ ...prev, user: userMatch }));
       localStorage.setItem('olga_logged_user', JSON.stringify(userMatch));
@@ -181,134 +199,181 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsCloudConnected(false);
   };
 
+  const updateEntityState = (key: keyof AppState, newList: any[]) => {
+    setState(prev => {
+      const updated = { ...prev, [key]: newList };
+      internalSaveToLocal(updated);
+      return updated;
+    });
+  };
+
   const addSystemUser = async (user: SystemUser) => {
-    const newUsers = [...state.users, user];
-    setState(prev => ({ ...prev, users: newUsers }));
-    saveLocalData({ users: newUsers });
+    updateEntityState('users', [...(state.users || []), user]);
     await supabase.from('users').insert([user]);
   };
 
   const updateSystemUser = async (user: SystemUser) => {
-    const newUsers = state.users.map(u => u.id === user.id ? user : u);
-    const updatedCurrentUser = state.user?.id === user.id ? user : state.user;
-    setState(prev => ({ ...prev, users: newUsers, user: updatedCurrentUser }));
-    if (state.user?.id === user.id) localStorage.setItem('olga_logged_user', JSON.stringify(updatedCurrentUser));
-    saveLocalData({ users: newUsers });
+    const newUsers = (state.users || []).map(u => u.id === user.id ? user : u);
+    setState(prev => {
+      const updated = { ...prev, users: newUsers, user: prev.user?.id === user.id ? user : prev.user };
+      if (prev.user?.id === user.id) localStorage.setItem('olga_logged_user', JSON.stringify(user));
+      internalSaveToLocal(updated);
+      return updated;
+    });
     await supabase.from('users').update(user).eq('id', user.id);
   };
 
   const deleteSystemUser = async (id: string) => {
     if (id === 'master-1') return alert('No se puede eliminar el usuario maestro');
-    const newUsers = state.users.filter(u => u.id !== id);
-    setState(prev => ({ ...prev, users: newUsers }));
-    saveLocalData({ users: newUsers });
+    updateEntityState('users', (state.users || []).filter(u => u.id !== id));
     await supabase.from('users').delete().eq('id', id);
   };
 
   const updateUserPassword = async (id: string, newPassword: string) => {
-    const user = state.users.find(u => u.id === id);
-    if (user) {
-      await updateSystemUser({ ...user, password: newPassword });
-    }
+    const user = (state.users || []).find(u => u.id === id);
+    if (user) await updateSystemUser({ ...user, password: newPassword });
   };
 
   const addProduct = async (product: Product) => {
-    const newList = [product, ...state.products];
-    setState(prev => ({ ...prev, products: newList }));
-    saveLocalData({ products: newList });
+    updateEntityState('products', [product, ...(state.products || [])]);
     await supabase.from('products').insert([product]);
   };
 
   const updateProduct = async (product: Product) => {
-    const newList = state.products.map(p => p.id === product.id ? product : p);
-    setState(prev => ({ ...prev, products: newList }));
-    saveLocalData({ products: newList });
+    updateEntityState('products', (state.products || []).map(p => p.id === product.id ? product : p));
     await supabase.from('products').update(product).eq('id', product.id);
   };
 
   const addClient = async (client: Client) => {
-    const newList = [client, ...state.clients];
-    setState(prev => ({ ...prev, clients: newList }));
-    saveLocalData({ clients: newList });
+    updateEntityState('clients', [client, ...(state.clients || [])]);
     await supabase.from('clients').insert([client]);
   };
 
   const updateClient = async (client: Client) => {
-    const newList = state.clients.map(c => c.id === client.id ? client : c);
-    setState(prev => ({ ...prev, clients: newList }));
-    saveLocalData({ clients: newList });
+    updateEntityState('clients', (state.clients || []).map(c => c.id === client.id ? client : c));
     await supabase.from('clients').update(client).eq('id', client.id);
   };
 
   const addSupplier = async (supplier: Supplier) => {
-    const newList = [supplier, ...state.suppliers];
-    setState(prev => ({ ...prev, suppliers: newList }));
-    saveLocalData({ suppliers: newList });
+    updateEntityState('suppliers', [supplier, ...(state.suppliers || [])]);
     await supabase.from('suppliers').insert([supplier]);
   };
 
   const updateSupplier = async (supplier: Supplier) => {
-    const newList = state.suppliers.map(s => s.id === supplier.id ? supplier : s);
-    setState(prev => ({ ...prev, suppliers: newList }));
-    saveLocalData({ suppliers: newList });
+    updateEntityState('suppliers', (state.suppliers || []).map(s => s.id === supplier.id ? supplier : s));
     await supabase.from('suppliers').update(supplier).eq('id', supplier.id);
   };
 
   const addSale = async (sale: Sale) => {
-    const updatedProducts = state.products.map(p => {
-      const item = sale.items.find(i => i.productId === p.id);
+    const updatedProducts = (state.products || []).map(p => {
+      const item = (sale.items || []).find(i => i.productId === p.id);
       return item ? { ...p, stock: Number(p.stock) - Number(item.quantity) } : p;
     });
-    const newSales = [sale, ...state.sales];
-    setState(prev => ({ ...prev, sales: newSales, products: updatedProducts }));
-    saveLocalData({ sales: newSales, products: updatedProducts });
+    setState(prev => {
+      const updated = { ...prev, sales: [sale, ...(prev.sales || [])], products: updatedProducts };
+      internalSaveToLocal(updated);
+      return updated;
+    });
     await supabase.from('sales').insert([sale]);
   };
 
   const updateSale = async (sale: Sale) => {
-    const newSales = state.sales.map(s => s.id === sale.id ? sale : s);
-    setState(prev => ({ ...prev, sales: newSales }));
-    saveLocalData({ sales: newSales });
+    updateEntityState('sales', (state.sales || []).map(s => s.id === sale.id ? sale : s));
     await supabase.from('sales').update(sale).eq('id', sale.id);
   };
 
   const cancelSale = async (id: string) => {
-    const newSales = state.sales.map(s => s.id === id ? { ...s, saleStatus: 'Anulado' as SaleStatus } : s);
-    setState(prev => ({ ...prev, sales: newSales }));
-    saveLocalData({ sales: newSales });
+    updateEntityState('sales', (state.sales || []).map(s => s.id === id ? { ...s, saleStatus: 'Anulado' } : s));
     await supabase.from('sales').update({ saleStatus: 'Anulado' }).eq('id', id);
   };
 
   const addPurchase = async (purchase: Purchase) => {
-    const updatedProducts = state.products.map(p => {
-      const item = purchase.items.find(i => i.productId === p.id);
+    const updatedProducts = (state.products || []).map(p => {
+      const item = (purchase.items || []).find(i => i.productId === p.id);
       return item ? { ...p, stock: Number(p.stock) + Number(item.quantity) } : p;
     });
-    const newPurchases = [purchase, ...state.purchases];
-    setState(prev => ({ ...prev, purchases: newPurchases, products: updatedProducts }));
-    saveLocalData({ purchases: newPurchases, products: updatedProducts });
+    setState(prev => {
+      const updated = { ...prev, purchases: [purchase, ...(prev.purchases || [])], products: updatedProducts };
+      internalSaveToLocal(updated);
+      return updated;
+    });
     await supabase.from('purchases').insert([purchase]);
   };
 
   const cancelPurchase = async (id: string) => {
-    const newPurchases = state.purchases.map(p => p.id === id ? { ...p, status: 'Anulado' as any } : p);
-    setState(prev => ({ ...prev, purchases: newPurchases }));
-    saveLocalData({ purchases: newPurchases });
+    updateEntityState('purchases', (state.purchases || []).map(p => p.id === id ? { ...p, status: 'Anulado' } : p));
     await supabase.from('purchases').update({ status: 'Anulado' }).eq('id', id);
   };
 
   const addTask = async (task: OperationalTask) => {
-    const newTasks = [...state.tasks, task];
-    setState(prev => ({ ...prev, tasks: newTasks }));
-    saveLocalData({ tasks: newTasks });
-    await supabase.from('tasks').insert([task]);
+    // IMPORTANTE: Quitamos el ID temporal antes de enviar a Supabase para que la DB asigne uno real (UUID)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, ...taskData } = task; 
+    
+    const taskToSave = { 
+      ...taskData, 
+      completedDates: Array.isArray(task.completedDates) ? task.completedDates : [] 
+    };
+    
+    try {
+      const { data, error } = await supabase.from('tasks').insert([taskToSave]).select();
+      
+      if (error) {
+        console.error("Error de Supabase al guardar tarea:", error);
+        throw error;
+      }
+
+      const realTaskFromDB = (data && data[0]) ? data[0] : { ...taskToSave, id: task.id };
+
+      setState(prev => {
+        const updated = { ...prev, tasks: [...(prev.tasks || []), realTaskFromDB] };
+        internalSaveToLocal(updated);
+        return updated;
+      });
+      console.log("Tarea sincronizada correctamente en la nube.");
+    } catch (err) {
+      console.error("Fallo crítico en sincronización de tarea:", err);
+      // Fallback local: Guardamos con el ID temporal si no hay nube
+      setState(prev => {
+        const updated = { ...prev, tasks: [...(prev.tasks || []), task] };
+        internalSaveToLocal(updated);
+        return updated;
+      });
+    }
   };
 
   const updateTask = async (task: OperationalTask) => {
-    const newTasks = state.tasks.map(t => t.id === task.id ? task : t);
-    setState(prev => ({ ...prev, tasks: newTasks }));
-    saveLocalData({ tasks: newTasks });
-    await supabase.from('tasks').update(task).eq('id', task.id);
+    const taskToSave = { ...task, completedDates: Array.isArray(task.completedDates) ? task.completedDates : [] };
+    setState(prev => {
+      const updated = { ...prev, tasks: (prev.tasks || []).map(t => String(t.id) === String(task.id) ? taskToSave : t) };
+      internalSaveToLocal(updated);
+      return updated;
+    });
+    try {
+      const { error } = await supabase.from('tasks').update(taskToSave).eq('id', task.id);
+      if (error) console.error("Error al actualizar tarea en nube:", error);
+    } catch (e) {
+      console.error("Excepción al actualizar tarea:", e);
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    const taskIdString = String(id);
+    
+    setState(prev => {
+      const currentTasks = Array.isArray(prev.tasks) ? prev.tasks : [];
+      const filtered = currentTasks.filter(t => String(t.id) !== taskIdString);
+      const updated = { ...prev, tasks: filtered };
+      internalSaveToLocal(updated); 
+      return updated;
+    });
+
+    try {
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) console.error("Error al borrar tarea en nube:", error);
+    } catch (err) {
+      console.error("Excepción al borrar tarea:", err);
+    }
   };
 
   const refreshCloudData = async () => {
@@ -330,7 +395,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       state, loading, isCloudConnected, setTheme, setCurrency, login, logout, 
       addSystemUser, updateSystemUser, deleteSystemUser, updateUserPassword, addProduct, updateProduct, addClient, updateClient, 
       addSupplier, updateSupplier, addSale, updateSale, cancelSale, addPurchase, 
-      cancelPurchase, addTask, updateTask, refreshCloudData
+      cancelPurchase, addTask, updateTask, deleteTask, refreshCloudData
     }}>
       {children}
     </StoreContext.Provider>
