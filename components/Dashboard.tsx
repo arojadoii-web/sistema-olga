@@ -16,7 +16,6 @@ const Dashboard: React.FC = () => {
   const { state, addTask, updateTask, deleteTask } = useStore();
   const [filter, setFilter] = useState<'Día' | 'Mes' | 'Año'>('Mes');
   
-  // Función auxiliar para normalizar fechas y asegurar consistencia
   const normalizeDate = (dateStr: string) => {
     if (!dateStr || typeof dateStr !== 'string') return '';
     const parts = dateStr.split('-');
@@ -79,11 +78,9 @@ const Dashboard: React.FC = () => {
     return sales.filter(s => {
       if (!s || !s.date || s.saleStatus === 'Anulado') return false;
       const sDate = normalizeDate(String(s.date));
-      
       if (filter === 'Día') return sDate === selDay;
       if (filter === 'Mes') return sDate.startsWith(calView);
       if (filter === 'Año') return sDate.startsWith(calView.substring(0, 4));
-      
       return false;
     });
   }, [state.sales, filter, selectedDay, calendarView]);
@@ -104,17 +101,13 @@ const Dashboard: React.FC = () => {
     const calView = normalizeDate(calendarView);
     const parts = calView.split('-');
     if (parts.length < 2) return [];
-    
     const [y, m] = parts.map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
     const result: (OperationalTask & { displayDate: string })[] = [];
-    
     for (let i = 1; i <= daysInMonth; i++) {
       const dStr = `${calView}-${String(i).padStart(2, '0')}`;
       const dayTasks = getTasksForDate(dStr);
-      dayTasks
-        .filter(t => !isTaskCompletedOnDate(t, dStr))
-        .forEach(dt => result.push({ ...dt, displayDate: dStr }));
+      dayTasks.filter(t => !isTaskCompletedOnDate(t, dStr)).forEach(dt => result.push({ ...dt, displayDate: dStr }));
     }
     return result.sort((a, b) => a.displayDate.localeCompare(b.displayDate));
   }, [state.tasks, calendarView]);
@@ -123,7 +116,6 @@ const Dashboard: React.FC = () => {
     const sales = Array.isArray(state.sales) ? state.sales : [];
     const calView = normalizeDate(calendarView);
     const selDay = normalizeDate(selectedDay || '');
-
     if (filter === 'Año') {
       const yearStr = calView.substring(0, 4);
       const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -137,7 +129,6 @@ const Dashboard: React.FC = () => {
         return { name: m, ventas: monthSales.reduce((acc, s) => acc + (s.total || 0), 0), cantidad: monthSales.length };
       });
     }
-    
     const parts = calView.split('-');
     const [y, m] = parts.map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -215,9 +206,8 @@ const Dashboard: React.FC = () => {
   const handleDaySelection = (dateStr: string) => {
     const normDate = normalizeDate(dateStr);
     const currentSelDay = normalizeDate(selectedDay || '');
-    if (currentSelDay === normDate) {
-      setShowTaskModal(true);
-    } else {
+    if (currentSelDay === normDate) setShowTaskModal(true);
+    else {
       setSelectedDay(normDate);
       setFilter('Día'); 
     }
@@ -226,12 +216,9 @@ const Dashboard: React.FC = () => {
   const handleMonthChange = (newView: string) => {
     const normView = normalizeDate(newView);
     setCalendarView(normView);
-    if (filter === 'Día') {
-      setSelectedDay(`${normView}-01`);
-    }
+    if (filter === 'Día') setSelectedDay(`${normView}-01`);
   };
 
-  // Función para renderizar la etiqueta externa de "Pendiente" en negrita
   const renderCustomizedPieLabel = (props: any) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, value, name } = props;
     if (name !== 'Pendiente' || value === 0) return null;
@@ -239,16 +226,8 @@ const Dashboard: React.FC = () => {
     const radius = outerRadius + 25;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
     return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="#eab308" 
-        textAnchor={x > cx ? 'start' : 'end'} 
-        dominantBaseline="central" 
-        className="font-black text-[12px]"
-      >
+      <text x={x} y={y} fill="#eab308" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="font-black text-[12px]">
         {formatMoney(value)}
       </text>
     );
@@ -387,7 +366,7 @@ const Dashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
                 <XAxis type="number" hide /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#9ca3af' }} width={80} /><Tooltip cursor={{fill: 'transparent'}} />
                 <Bar dataKey="val" fill="#3b82f6" radius={[0, 10, 10, 0]} barSize={45}>
-                  <LabelList dataKey="val" position="right" style={{ fontSize: 10, fill: '#3b82f6', fontWeight: 'bold' }} />
+                  <LabelList dataKey="val" position="right" formatter={(v: number) => Number(v.toFixed(2))} style={{ fontSize: 10, fill: '#3b82f6', fontWeight: 'bold' }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -405,13 +384,7 @@ const Dashboard: React.FC = () => {
                 <YAxis hide />
                 <Tooltip formatter={(value: number) => formatMoney(value)} cursor={{fill: 'transparent'}} />
                 <Bar dataKey="val" fill="#a855f7" radius={[15, 15, 0, 0]} barSize={65}>
-                  <LabelList 
-                    dataKey="val" 
-                    position="top" 
-                    offset={15} 
-                    formatter={(v: number) => formatMoney(v)} 
-                    style={{ fontSize: 11, fill: '#a855f7', fontWeight: 'black' }} 
-                  />
+                  <LabelList dataKey="val" position="top" offset={15} formatter={(v: number) => formatMoney(v)} style={{ fontSize: 11, fill: '#a855f7', fontWeight: 'black' }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -453,7 +426,7 @@ const KpiCard: React.FC<{ title: string, value: string, icon: any, color: string
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 hover:scale-[1.02] transition-all">
       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-4 ${colorStyles[color] || 'bg-gray-50'}`}><Icon size={20} /></div>
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 leading-tight">{title}</p>
+      <p className="text-[10px] font-black text-gray-400 uppercase mb-1 leading-tight">{title}</p>
       <h4 className="text-2xl font-black tracking-tighter text-gray-800 dark:text-white">{value}</h4>
     </div>
   );
@@ -463,23 +436,12 @@ const OperationalCalendar: React.FC<{ viewMonth: string, selectedDay: string | n
   const vMonth = String(viewMonth || '');
   const parts = vMonth.split('-');
   const [year, month] = parts.length >= 2 ? parts.map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
-  
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const dayNumbers = Array.from({ length: isNaN(daysInMonth) ? 0 : daysInMonth }, (_, i) => i + 1);
   const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-  
-  const handlePrev = () => { 
-    const prevMonth = month === 1 ? 12 : month - 1; 
-    const prevYear = month === 1 ? year - 1 : year; 
-    onMonthChange(`${prevYear}-${String(prevMonth).padStart(2, '0')}`); 
-  };
-  const handleNext = () => { 
-    const nextMonth = month === 12 ? 1 : month + 1; 
-    const nextYear = month === 12 ? year + 1 : year; 
-    onMonthChange(`${nextYear}-${String(nextMonth).padStart(2, '0')}`); 
-  };
-  
+  const handlePrev = () => { const prevMonth = month === 1 ? 12 : month - 1; const prevYear = month === 1 ? year - 1 : year; onMonthChange(`${prevYear}-${String(prevMonth).padStart(2, '0')}`); };
+  const handleNext = () => { const nextMonth = month === 12 ? 1 : month + 1; const nextYear = month === 12 ? year + 1 : year; onMonthChange(`${nextYear}-${String(nextMonth).padStart(2, '0')}`); };
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between mb-4">
@@ -515,33 +477,11 @@ const TaskManagementModal: React.FC<{ day: string, tasks: OperationalTask[], onC
   const [newType, setNewType] = useState<TaskType>('TAREA ADMINISTRATIVA');
   const [newDesc, setNewDesc] = useState('');
   const [newFreq, setNewFreq] = useState<'unico' | 'constante'>('unico');
-  
-  useEffect(() => { 
-    if (editingTask) { 
-      setNewType(editingTask.type); 
-      setNewDesc(editingTask.description || ''); 
-      setNewFreq(editingTask.frequency || 'unico'); 
-    } else { 
-      setNewType('TAREA ADMINISTRATIVA'); 
-      setNewDesc(''); 
-      setNewFreq('unico'); 
-    } 
-  }, [editingTask]);
-
-  const handleSubmit = (e: React.FormEvent) => { 
-    e.preventDefault(); 
-    if (editingTask) { 
-      onUpdateTask({ ...editingTask, type: newType, description: newDesc, frequency: newFreq }); 
-      setEditingTask(null); 
-    } else { 
-      onAddTask(newType, newDesc, newFreq); 
-      setNewDesc(''); 
-    } 
-  };
-  
+  useEffect(() => { if (editingTask) { setNewType(editingTask.type); setNewDesc(editingTask.description || ''); setNewFreq(editingTask.frequency || 'unico'); } else { setNewType('TAREA ADMINISTRATIVA'); setNewDesc(''); setNewFreq('unico'); } }, [editingTask]);
+  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (editingTask) { onUpdateTask({ ...editingTask, type: newType, description: newDesc, frequency: newFreq }); setEditingTask(null); } else { onAddTask(newType, newDesc, newFreq); setNewDesc(''); } };
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in-95">
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in-95 border border-gray-100 dark:border-gray-700 overflow-y-auto max-h-[90vh]">
         <div className="flex justify-between items-center mb-6">
            <div><h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Agenda Operativa</h3><p className="text-[10px] text-primary-600 font-bold">{day}</p></div>
            <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors"><XCircle size={24} /></button>
@@ -560,16 +500,7 @@ const TaskManagementModal: React.FC<{ day: string, tasks: OperationalTask[], onC
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => setEditingTask(t)} className="p-1.5 text-blue-500 hover:bg-blue-100 rounded-lg"><Edit2 size={14} /></button>
-                  <button 
-                    type="button"
-                    onClick={() => { 
-                      if(window.confirm('¿Eliminar permanentemente esta tarea?')) {
-                        onDeleteTask(t.id);
-                      }
-                    }} 
-                    className="flex items-center justify-center w-9 h-9 text-red-500 bg-red-50 hover:bg-red-100 rounded-full transition-all active:scale-90"
-                    title="Eliminar tarea"
-                  >
+                  <button type="button" onClick={() => { if(window.confirm('¿Eliminar permanentemente esta tarea?')) onDeleteTask(t.id); }} className="flex items-center justify-center w-9 h-9 text-red-500 bg-red-50 hover:bg-red-100 rounded-full transition-all active:scale-90" title="Eliminar tarea">
                     <Trash2 size={16} />
                   </button>
                 </div>
