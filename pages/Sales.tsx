@@ -20,7 +20,7 @@ const Sales: React.FC = () => {
   const formatMoney = (val: number) => {
     const symbol = state.currency === 'PEN' ? 'S/' : '$';
     const amount = state.currency === 'PEN' ? val : val / state.exchangeRate;
-    return `${symbol} ${amount.toFixed(2).replace(',', '.')}`;
+    return `${symbol} ${(amount || 0).toFixed(2).replace(',', '.')}`;
   };
 
   const handleEdit = (sale: Sale) => {
@@ -39,6 +39,7 @@ const Sales: React.FC = () => {
           <div className="grid grid-cols-2 sm:flex gap-3">
             <button 
               onClick={() => setShowReportModal(true)}
+              title="Generar reporte PDF de ventas"
               className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-4 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm transition-all hover:bg-gray-50 active:scale-95"
             >
               <FileText size={18} className="text-primary-600" />
@@ -46,6 +47,7 @@ const Sales: React.FC = () => {
             </button>
             <button 
               onClick={() => { setEditingSale(null); setView('new'); }}
+              title="Iniciar una nueva venta"
               className="flex items-center justify-center gap-2 bg-primary-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary-600/30 transition-all active:scale-95"
             >
               <PlusCircle size={18} />
@@ -55,6 +57,7 @@ const Sales: React.FC = () => {
         ) : (
           <button 
             onClick={() => { setView('list'); setEditingSale(null); }}
+            title="Cancelar registro actual"
             className="text-gray-400 hover:text-red-500 font-black text-xs uppercase tracking-widest flex items-center gap-2 py-2"
           >
             <XCircle size={18} />
@@ -105,7 +108,7 @@ const Sales: React.FC = () => {
 };
 
 const displayDate = (dateStr: string) => {
-  if (!dateStr) return '';
+  if (!dateStr || typeof dateStr !== 'string') return '';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const [year, month, day] = parts;
@@ -119,13 +122,15 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
   const itemsPerPage = 10;
 
   const sortedSales = useMemo(() => {
-    return [...sales].sort((a, b) => b.date.localeCompare(a.date));
+    return Array.isArray(sales) ? [...sales].sort((a, b) => String(b.date).localeCompare(String(a.date))) : [];
   }, [sales]);
 
-  const filteredSales = sortedSales.filter(s => 
-    s.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.documentNumber.includes(searchTerm)
-  );
+  const filteredSales = sortedSales.filter(s => {
+    const term = String(searchTerm || '').toLowerCase();
+    const cName = String(s.clientName || '').toLowerCase();
+    const dNum = String(s.documentNumber || '').toLowerCase();
+    return cName.includes(term) || dNum.includes(term);
+  });
 
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
   const paginatedSales = filteredSales.slice(
@@ -165,7 +170,7 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{displayDate(sale.date)}</p>
-                  <p className="font-black text-gray-900 dark:text-white leading-tight">{sale.clientName}</p>
+                  <p className="font-black text-gray-900 dark:text-white leading-tight uppercase">{sale.clientName}</p>
                   <p className="text-[10px] font-bold text-primary-600 uppercase mt-1">{sale.documentType} {sale.documentNumber}</p>
                 </div>
                 <div className="text-right">
@@ -177,16 +182,11 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
                     }`}>
                       {sale.saleStatus}
                     </span>
-                    <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                      sale.docStatus === 'Emitido' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {sale.docStatus}
-                    </span>
                   </div>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => onView(sale)} title="Ver Detalle de Venta" className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Ver</button>
+                <button onClick={() => onView(sale)} title="Ver Detalle" className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Ver</button>
                 <button onClick={() => onEdit(sale)} title="Editar Venta" className="flex-1 py-3 bg-primary-50 dark:bg-primary-900/20 rounded-xl text-xs font-black uppercase tracking-widest text-primary-600">Editar</button>
                 {sale.saleStatus !== 'Anulado' && (
                   <button onClick={() => handleCancelClick(sale.id)} title="Anular Venta" className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl">
@@ -208,7 +208,6 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
               <th className="px-8 py-6">Documento</th>
               <th className="px-8 py-6 text-right">Total</th>
               <th className="px-8 py-6 text-center">Estado Venta</th>
-              <th className="px-8 py-6 text-center">Estado Doc</th>
               <th className="px-8 py-6 text-center">Acciones</th>
             </tr>
           </thead>
@@ -233,22 +232,15 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
                     {sale.saleStatus}
                   </span>
                 </td>
-                <td className="px-8 py-5 text-center">
-                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
-                    sale.docStatus === 'Emitido' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    {sale.docStatus}
-                  </span>
-                </td>
                 <td className="px-8 py-5">
                   <div className="flex items-center justify-center gap-3">
-                    <button onClick={() => onView(sale)} title="Ver Detalle de Venta" className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Eye size={18} /></button>
-                    <button onClick={() => onEdit(sale)} title="Editar Venta" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
+                    <button onClick={() => onView(sale)} title="Ver Detalle Completo" className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Eye size={18} /></button>
+                    <button onClick={() => onEdit(sale)} title="Editar Venta Seleccionada" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
                     {sale.saleStatus !== 'Anulado' && (
                       <button 
                         disabled={isCancelling === sale.id}
                         onClick={() => handleCancelClick(sale.id)} 
-                        title="Anular Venta"
+                        title="Anular Operación"
                         className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl disabled:opacity-50"
                       >
                         {isCancelling === sale.id ? <Loader2 className="animate-spin" size={18} /> : <XCircle size={18} />}
@@ -271,14 +263,16 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
             <button 
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => prev - 1)}
-              className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 disabled:opacity-50 active:scale-90 transition-all"
+              title="Página Anterior"
+              className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 disabled:opacity-50 active:scale-90"
             >
               <ChevronLeft size={20} />
             </button>
             <button 
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(prev => prev + 1)}
-              className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 disabled:opacity-50 active:scale-90 transition-all"
+              title="Página Siguiente"
+              className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 disabled:opacity-50 active:scale-90"
             >
               <ChevronRight size={20} />
             </button>
@@ -302,7 +296,6 @@ const NewSaleForm: React.FC<{
   const [docSuggestions, setDocSuggestions] = useState<Client[]>([]);
   const [productSearch, setProductSearch] = useState<{ index: number | null, term: string }>({ index: null, term: '' });
 
-  // Se obtiene la fecha actual en formato YYYY-MM-DD usando la configuración regional sueca (ISO local)
   const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
 
   const [formData, setFormData] = useState({
@@ -317,11 +310,12 @@ const NewSaleForm: React.FC<{
   });
 
   const [items, setItems] = useState<SaleItem[]>(initialData?.items || []);
-  const selectedClient = clients.find(c => c.id === formData.clientId);
+  const selectedClient = (clients || []).find(c => c.id === formData.clientId);
 
   useEffect(() => {
-    if (docSearch.length > 0) {
-      const matches = clients.filter(c => c.docNumber.includes(docSearch)).slice(0, 5);
+    const term = String(docSearch || '').toLowerCase();
+    if (term.length > 0) {
+      const matches = (clients || []).filter(c => String(c.docNumber || '').toLowerCase().includes(term)).slice(0, 5);
       setDocSuggestions(matches);
     } else {
       setDocSuggestions([]);
@@ -352,7 +346,7 @@ const NewSaleForm: React.FC<{
     }
 
     if (field === 'quantity' || field === 'unitPrice' || field === 'productId' || field === 'unit') {
-      item.total = Number(item.quantity) * Number(item.unitPrice);
+      item.total = Number(item.quantity || 0) * Number(item.unitPrice || 0);
     }
 
     newItems[index] = item;
@@ -363,7 +357,7 @@ const NewSaleForm: React.FC<{
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const total = items.reduce((sum, item) => sum + item.total, 0);
+  const total = items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -434,7 +428,7 @@ const NewSaleForm: React.FC<{
         <div className="md:col-span-2">
           <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Nombre Cliente</label>
           <select value={formData.clientId} onChange={e => {
-            const client = clients.find(c => c.id === e.target.value);
+            const client = (clients || []).find(c => c.id === e.target.value);
             if (client) handleSelectClient(client);
             else setFormData({...formData, clientId: ''});
           }} className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-[11px] uppercase">
@@ -474,7 +468,7 @@ const NewSaleForm: React.FC<{
 
         <div className="md:col-span-2">
           <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">Estado Venta</label>
-          <select value={formData.saleStatus} onChange={e => setFormData({...formData, saleStatus: e.target.value as SaleStatus})} className={`w-full px-4 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-primary-500 font-black text-xs uppercase ${
+          <select value={formData.saleStatus} onChange={e => setFormData({...formData, saleStatus: e.target.value as SaleStatus})} title="Cambiar estado de cobro" className={`w-full px-4 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-primary-500 font-black text-xs uppercase ${
             formData.saleStatus === 'Cancelado' ? 'bg-green-50 text-green-700' : 
             formData.saleStatus === 'Pendiente' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
           }`}>
@@ -491,7 +485,7 @@ const NewSaleForm: React.FC<{
              <div className="p-2 bg-primary-100 text-primary-600 rounded-xl"><Package size={18} /></div>
              <h3 className="font-black text-gray-900 dark:text-white text-[10px] tracking-[0.2em] uppercase">Detalle Pedido</h3>
            </div>
-           <button type="button" onClick={addItem} className="bg-primary-50 text-primary-600 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">
+           <button type="button" onClick={addItem} title="Agregar un producto a la venta" className="bg-primary-50 text-primary-600 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">
              + Item
            </button>
         </div>
@@ -502,7 +496,7 @@ const NewSaleForm: React.FC<{
               <button 
                 type="button" 
                 onClick={() => removeItem(i)} 
-                title="Eliminar Item"
+                title="Eliminar este item"
                 className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full shadow-lg active:scale-90"
               >
                 <Trash2 size={16} />
@@ -519,10 +513,10 @@ const NewSaleForm: React.FC<{
                     onChange={(e) => setProductSearch({ index: i, term: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white font-bold outline-none border-2 border-transparent focus:border-primary-500 transition-all uppercase"
                   />
-                  {productSearch.index === i && productSearch.term.length > 0 && (
+                  {productSearch.index === i && String(productSearch.term || '').length > 0 && (
                     <div className="absolute z-[200] left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in">
                       {products
-                        .filter(p => p.name.toLowerCase().includes(productSearch.term.toLowerCase()))
+                        .filter(p => String(p.name || '').toLowerCase().includes(String(productSearch.term || '').toLowerCase()))
                         .slice(0, 8)
                         .map(p => (
                         <button
@@ -573,6 +567,7 @@ const NewSaleForm: React.FC<{
         <button 
           type="submit" 
           disabled={isSaving}
+          title="Confirmar venta y actualizar inventario"
           className="w-full sm:w-auto px-16 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] bg-primary-600 text-white shadow-2xl shadow-primary-600/30 transition-all active:scale-95 flex items-center justify-center gap-3"
         >
           {isSaving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
@@ -600,11 +595,13 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
       const { jsPDF } = (window as any).jspdf;
       const doc = new jsPDF('landscape'); 
       
-      const filtered = sales.filter(s => {
-        const dateMatch = s.date >= fromDate && s.date <= toDate;
+      const filtered = (sales || []).filter(s => {
+        if (!s || !s.date) return false;
+        const sDate = String(s.date);
+        const dateMatch = sDate >= fromDate && sDate <= toDate;
         const clientMatch = clientId === 'all' || s.clientId === clientId;
         return dateMatch && clientMatch && s.saleStatus !== 'Anulado';
-      }).sort((a, b) => a.date.localeCompare(b.date));
+      }).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
       if (filtered.length === 0) {
         alert("Sin datos");
@@ -628,7 +625,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
       let grandTotal = 0;
 
       filtered.forEach(s => {
-        s.items.forEach(item => {
+        (s.items || []).forEach(item => {
           tableRows.push([
             displayDate(s.date),
             s.documentNumber,
@@ -638,7 +635,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
             formatMoney(item.unitPrice),
             formatMoney(item.total)
           ]);
-          grandTotal += item.total;
+          grandTotal += (Number(item.total) || 0);
         });
       });
 
@@ -676,7 +673,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
             <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">Reporte PDF</h3>
             <p className="text-[10px] text-primary-600 font-black uppercase tracking-widest mt-1">Configuración de Filtros Detallados</p>
           </div>
-          <button onClick={onClose} className="p-3 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-2xl transition-all">
+          <button onClick={onClose} title="Cerrar modal" className="p-3 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-2xl transition-all">
             <XCircle size={28} />
           </button>
         </div>
@@ -707,6 +704,7 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
           <button 
             onClick={generatePDF}
             disabled={isGenerating}
+            title="Generar y descargar PDF"
             className="px-12 py-4 bg-primary-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-primary-600/30 active:scale-95 disabled:opacity-50"
           >
             {isGenerating ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
@@ -727,7 +725,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, onClose: () => void, formatMoney: 
             <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">Detalle de Venta</h3>
             <p className="text-[10px] font-black text-primary-600 uppercase mt-1 tracking-widest">{sale.documentType} #{sale.documentNumber}</p>
           </div>
-          <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-2xl transition-all"><XCircle size={28} className="text-gray-300" /></button>
+          <button onClick={onClose} title="Cerrar detalle" className="p-3 hover:bg-gray-100 rounded-2xl transition-all"><XCircle size={28} className="text-gray-300" /></button>
         </div>
         
         <div className="p-10 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
@@ -768,7 +766,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, onClose: () => void, formatMoney: 
                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Artículos del Pedido</p>
              </div>
              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-               {sale.items.map((item, idx) => (
+               {(sale.items || []).map((item, idx) => (
                  <div key={idx} className="py-4 flex justify-between items-center">
                    <div>
                      <p className="text-sm font-black text-gray-900 dark:text-white uppercase">{item.productName}</p>

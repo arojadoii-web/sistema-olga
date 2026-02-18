@@ -12,7 +12,6 @@ const Clients: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Estados para el formulario controlado
   const [formName, setFormName] = useState('');
   const [formDocType, setFormDocType] = useState<'DNI' | 'RUC'>('DNI');
   const [formDocNumber, setFormDocNumber] = useState('');
@@ -56,9 +55,6 @@ const Clients: React.FC = () => {
     currentPage * itemsPerPage
   );
 
-  /**
-   * CONSULTA INTEGRADA CON APISPERU (DNI/RUC)
-   */
   const handleSunatSearch = async () => {
     const doc = formDocNumber.trim();
     const type = formDocType;
@@ -72,7 +68,6 @@ const Clients: React.FC = () => {
     setSearchError(null);
     
     try {
-      // Endpoint según el tipo de documento
       const baseUrl = type === 'DNI' ? dniUrl : rucUrl;
       const finalUrl = `${baseUrl}/${doc}?token=${token}`;
 
@@ -89,28 +84,26 @@ const Clients: React.FC = () => {
       
       const data = await response.json();
 
-      // Mapeo específico para dniruc.apisperu.com
       if (data) {
         let name = "";
         let address = "";
 
         if (type === 'DNI') {
-          // El DNI en esta API devuelve nombres, apellidoPaterno, apellidoMaterno por separado
           const full = [];
           if (data.nombres) full.push(data.nombres);
           if (data.apellidoPaterno) full.push(data.apellidoPaterno);
           if (data.apellidoMaterno) full.push(data.apellidoMaterno);
           
-          name = full.join(' ') || data.nombre_completo || data.nombre;
+          name = full.join(' ') || data.nombre_completo || data.nombre || "";
         } else {
-          // El RUC devuelve razonSocial y direccion
-          name = data.razonSocial || data.nombre || data.razon_social;
+          name = data.razonSocial || data.nombre || data.razon_social || "";
           address = data.direccion || data.direccion_completa || "";
         }
 
         if (name) {
           setFormName(name.toUpperCase());
           if (address) setFormAddress(address.toUpperCase());
+          setSearchError(null);
         } else {
           throw new Error("La API no devolvió información del titular.");
         }
@@ -119,19 +112,7 @@ const Clients: React.FC = () => {
       }
     } catch (error: any) {
       console.warn("Fallo en búsqueda:", error.message);
-      
-      if (error.message === 'Failed to fetch') {
-        setSearchError("Bloqueo CORS: La API de ApisPerú no permite consultas directas desde el navegador. Por favor, complete manualmente.");
-      } else {
-        setSearchError(error.message);
-      }
-      
-      // Permitir modo manual rápido
-      const manual = confirm("¿Desea completar los datos manualmente ante el error?");
-      if (manual) {
-        setFormName("");
-        setIsSearching(false);
-      }
+      setSearchError(error.message);
     } finally {
       setIsSearching(false);
     }
@@ -231,7 +212,7 @@ const Clients: React.FC = () => {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-[3rem] shadow-2xl animate-in zoom-in-95 p-10 border border-white/10">
             <div className="flex justify-between items-center mb-8">
               <div>
