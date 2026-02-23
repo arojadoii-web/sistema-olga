@@ -101,6 +101,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   useEffect(() => {
+    if (state.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [state.theme]);
+
+  useEffect(() => {
     const init = async () => {
       loadLocalData();
       const localUser = localStorage.getItem('olga_logged_user');
@@ -256,7 +264,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const cancelSale = async (id: string) => {
     setState(prev => {
-      const updated = { ...prev, sales: prev.sales.map(x => x.id === id ? { ...x, saleStatus: 'Anulado' } : x) };
+      const updated = { ...prev, sales: prev.sales.map(x => x.id === id ? { ...x, saleStatus: 'Anulado' as SaleStatus } : x) };
       internalSaveToLocal(updated);
       return updated;
     });
@@ -275,7 +283,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const cancelPurchase = async (id: string) => {
     setState(prev => {
-      const updated = { ...prev, purchases: prev.purchases.map(x => x.id === id ? { ...x, status: 'Anulado' } : x) };
+      const updated = { ...prev, purchases: prev.purchases.map(x => x.id === id ? { ...x, status: 'Anulado' as 'Anulado' } : x) };
       internalSaveToLocal(updated);
       return updated;
     });

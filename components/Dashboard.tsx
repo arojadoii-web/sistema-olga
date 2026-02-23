@@ -126,7 +126,12 @@ const Dashboard: React.FC = () => {
           const [y, mm] = sDate.split('-').map(Number);
           return s.saleStatus !== 'Anulado' && String(y) === yearStr && mm === i + 1;
         });
-        return { name: m, ventas: monthSales.reduce((acc, s) => acc + (s.total || 0), 0), cantidad: monthSales.length };
+        return { 
+          name: m, 
+          ventas: monthSales.reduce((acc, s) => acc + (s.total || 0), 0), 
+          cantidad: monthSales.length,
+          isSelected: false
+        };
       });
     }
     const parts = calView.split('-');
