@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
-import { Plus, Search, Edit2, ToggleLeft, ToggleRight, UserPlus, MapPin, XCircle, Trash2, Loader2, Search as SearchIcon, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit2, ToggleLeft, ToggleRight, UserPlus, MapPin, XCircle, Trash2, Loader2, Search as SearchIcon, ShieldAlert, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Client } from '../types';
 
 const Clients: React.FC = () => {
@@ -216,6 +216,32 @@ const Clients: React.FC = () => {
             </tbody>
           </table>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="p-6 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/30 dark:bg-gray-800/50">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Pag. {currentPage} / {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                title="Página Anterior"
+                className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 disabled:opacity-50 active:scale-90"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button 
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                title="Página Siguiente"
+                className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 disabled:opacity-50 active:scale-90"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN PERSONALIZADO */}

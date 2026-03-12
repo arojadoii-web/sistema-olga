@@ -35,7 +35,7 @@ const AppContent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-primary-600 mb-4" size={48} />
         <p className="text-gray-500 font-bold animate-pulse">Iniciando Sistema Olga...</p>
       </div>

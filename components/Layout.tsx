@@ -173,7 +173,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
+        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar bg-gray-50 dark:bg-gray-900">
           {children}
         </div>
       </main>
