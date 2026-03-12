@@ -134,22 +134,39 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         supabase.from('tasks').select('*').order('date', { ascending: true })
       ]);
 
+      // Verificar errores individuales antes de actualizar el estado
+      if (p.error || c.error || s.error || sa.error || pu.error || u.error || t.error) {
+        console.error('Error fetching some data from Supabase:', {
+          products: p.error,
+          clients: c.error,
+          suppliers: s.error,
+          sales: sa.error,
+          purchases: pu.error,
+          users: u.error,
+          tasks: t.error
+        });
+      }
+
       setState(prev => {
         const updated = {
           ...prev,
-          products: p.data || [],
-          clients: c.data || [],
-          suppliers: s.data || [],
-          sales: sa.data || [],
-          purchases: pu.data || [],
+          products: p.data || prev.products,
+          clients: c.data || prev.clients,
+          suppliers: s.data || prev.suppliers,
+          sales: sa.data || prev.sales,
+          purchases: pu.data || prev.purchases,
           users: u.data || prev.users,
-          tasks: t.data || []
+          tasks: (t.data || prev.tasks).map((task: any) => ({
+            ...task,
+            completedDates: Array.isArray(task.completedDates) ? task.completedDates : []
+          }))
         };
         internalSaveToLocal(updated);
         return updated;
       });
       setIsCloudConnected(true);
     } catch (e) {
+      console.error('Critical error in fetchAllData:', e);
       setIsCloudConnected(false);
     } finally {
       setLoading(false);
@@ -322,9 +339,47 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   // TAREAS
-  const addTask = async (t: OperationalTask) => { setState(prev => ({ ...prev, tasks: [...prev.tasks, t] })); await supabase.from('tasks').insert([t]); };
-  const updateTask = async (t: OperationalTask) => { setState(prev => ({ ...prev, tasks: prev.tasks.map(x => x.id === t.id ? t : x) })); await supabase.from('tasks').update(t).eq('id', t.id); };
-  const deleteTask = async (id: string) => { setState(prev => ({ ...prev, tasks: prev.tasks.filter(x => x.id !== id) })); await supabase.from('tasks').delete().eq('id', id); };
+  const addTask = async (t: OperationalTask) => {
+    setState(prev => {
+      const updated = { ...prev, tasks: [...prev.tasks, t] };
+      internalSaveToLocal(updated);
+      return updated;
+    });
+    try {
+      const { error } = await supabase.from('tasks').insert([t]);
+      if (error) console.error('Error adding task to cloud:', error);
+    } catch (e) {
+      console.error('Network error adding task:', e);
+    }
+  };
+
+  const updateTask = async (t: OperationalTask) => {
+    setState(prev => {
+      const updated = { ...prev, tasks: prev.tasks.map(x => x.id === t.id ? t : x) };
+      internalSaveToLocal(updated);
+      return updated;
+    });
+    try {
+      const { error } = await supabase.from('tasks').update(t).eq('id', t.id);
+      if (error) console.error('Error updating task in cloud:', error);
+    } catch (e) {
+      console.error('Network error updating task:', e);
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    setState(prev => {
+      const updated = { ...prev, tasks: prev.tasks.filter(x => x.id !== id) };
+      internalSaveToLocal(updated);
+      return updated;
+    });
+    try {
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) console.error('Error deleting task from cloud:', error);
+    } catch (e) {
+      console.error('Network error deleting task:', e);
+    }
+  };
 
   // OTROS
   const setTheme = (theme: 'light' | 'dark') => { setState(prev => ({ ...prev, theme })); localStorage.setItem('theme', theme); };
