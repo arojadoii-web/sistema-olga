@@ -414,7 +414,18 @@ const Dashboard: React.FC = () => {
           day={selectedDay} 
           tasks={getTasksForDate(selectedDay)} 
           onClose={() => setShowTaskModal(false)}
-          onAddTask={(type, desc, freq) => addTask({ id: Date.now().toString(), date: selectedDay, type, description: desc, status: 'pendiente', frequency: freq, completedDates: [] })}
+          onAddTask={(type, desc, freq) => {
+            if (!selectedDay) return;
+            addTask({ 
+              id: Date.now().toString(), 
+              date: selectedDay, 
+              type, 
+              description: desc, 
+              status: 'pendiente', 
+              frequency: freq, 
+              completedDates: [] 
+            });
+          }}
           onUpdateTask={(task) => updateTask(task)}
           onToggleTask={(task) => handleToggleTaskStatus(task, selectedDay)}
           onDeleteTask={(id) => deleteTask(String(id))} 
@@ -458,7 +469,7 @@ const OperationalCalendar: React.FC<{ viewMonth: string, selectedDay: string | n
         </div>
       </div>
       <div className="grid grid-cols-7 gap-4">
-        {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(d => <div key={d} className="text-center text-[10px] font-black text-gray-400 uppercase pb-2">{d}</div>)}
+        {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => <div key={`${d}-${i}`} className="text-center text-[10px] font-black text-gray-400 uppercase pb-2">{d}</div>)}
         {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
         {dayNumbers.map(d => {
           const dateStr = `${vMonth}-${String(d).padStart(2, '0')}`;
@@ -492,10 +503,10 @@ const TaskManagementModal: React.FC<{ day: string, tasks: OperationalTask[], onC
            <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors"><XCircle size={24} /></button>
         </div>
         <div className="space-y-4 mb-6 max-h-56 overflow-y-auto custom-scrollbar pr-2">
-          {tasks.map(t => {
+          {tasks.map((t, i) => {
             const isDone = isTaskCompletedOnDate(t, day);
             return (
-              <div key={t.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl">
+              <div key={`${t.id}-${i}`} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl">
                 <div className="flex items-center gap-3">
                   <button type="button" onClick={() => onToggleTask(t)} className={`transition-all active:scale-90 ${isDone ? 'text-green-500' : 'text-gray-300 hover:text-primary-500'}`}><CheckCircle2 size={20} /></button>
                   <div className={`flex flex-col ${isDone ? 'line-through opacity-40' : 'text-gray-700 dark:text-white'}`}>
