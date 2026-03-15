@@ -340,9 +340,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // TAREAS
   const addTask = async (t: OperationalTask) => {
-    // Generar un ID numérico para mayor compatibilidad con columnas bigint
-    const numericId = Date.now().toString();
-    const taskWithId = { ...t, id: numericId };
+    // Generar un UUID para compatibilidad con la columna id de tipo uuid en Supabase
+    const uuid = crypto.randomUUID();
+    const taskWithId = { ...t, id: uuid };
     
     setState(prev => {
       const updated = { ...prev, tasks: [...prev.tasks, taskWithId] };
@@ -351,18 +351,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
     
     try {
-      // Intentar enviar el ID como número si parece uno, para compatibilidad con bigint
-      const supabaseTask = { ...taskWithId };
-      // @ts-ignore
-      if (/^\d+$/.test(taskWithId.id)) supabaseTask.id = Number(taskWithId.id);
-
-      const { error } = await supabase.from('tasks').upsert([supabaseTask]);
+      const { error } = await supabase.from('tasks').insert([taskWithId]);
       if (error) {
         console.error('Error saving task to Supabase:', error);
-        // Si falla con número, intentar como string (por si la columna es text/uuid)
-        if (error.code === '22P02' || error.code === '42804') {
-          await supabase.from('tasks').upsert([taskWithId]);
-        }
       }
     } catch (e) {
       console.error('Network error saving task to Supabase:', e);
@@ -377,14 +368,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
     
     try {
-      const supabaseTask = { ...t };
-      // @ts-ignore
-      if (/^\d+$/.test(t.id)) supabaseTask.id = Number(t.id);
-
-      const { error } = await supabase.from('tasks').upsert([supabaseTask]);
-      if (error && (error.code === '22P02' || error.code === '42804')) {
-        await supabase.from('tasks').upsert([t]);
-      }
+      const { error } = await supabase.from('tasks').upsert([t]);
+      if (error) console.error('Error updating task in Supabase:', error);
     } catch (e) {
       console.error('Network error updating task in Supabase:', e);
     }
@@ -398,13 +383,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
     
     try {
-      let deleteId: any = id;
-      if (/^\d+$/.test(id)) deleteId = Number(id);
-
-      const { error } = await supabase.from('tasks').delete().eq('id', deleteId);
-      if (error && (error.code === '22P02' || error.code === '42804')) {
-        await supabase.from('tasks').delete().eq('id', id);
-      }
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) console.error('Error deleting task from Supabase:', error);
     } catch (e) {
       console.error('Network error deleting task from Supabase:', e);
     }

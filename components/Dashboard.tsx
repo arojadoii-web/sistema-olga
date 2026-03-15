@@ -417,7 +417,7 @@ const Dashboard: React.FC = () => {
           onAddTask={(type, desc, freq) => {
             if (!selectedDay) return;
             addTask({ 
-              id: Date.now().toString(), 
+              id: crypto.randomUUID(), 
               date: selectedDay, 
               type, 
               description: desc, 
