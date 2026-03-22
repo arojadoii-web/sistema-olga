@@ -147,7 +147,8 @@ const SalesList: React.FC<{ sales: Sale[], clients: Client[], formatMoney: (n: n
     const clientInfo = getClientInfo(s);
     const cName = String(clientInfo.name || '').toLowerCase();
     const dNum = String(s.documentNumber || '').toLowerCase();
-    return cName.includes(term) || dNum.includes(term);
+    const cDoc = String(clientInfo.docNumber || '').toLowerCase();
+    return cName.includes(term) || dNum.includes(term) || cDoc.includes(term);
   });
 
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
@@ -171,7 +172,7 @@ const SalesList: React.FC<{ sales: Sale[], clients: Client[], formatMoney: (n: n
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input 
             type="text" 
-            placeholder="Buscar por cliente o factura..." 
+            placeholder="Buscar por cliente, documento o factura..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-14 pr-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-primary-500 outline-none text-sm font-bold text-gray-900 dark:text-white transition-all"
