@@ -69,6 +69,7 @@ const Sales: React.FC = () => {
       {view === 'list' ? (
         <SalesList 
           sales={state.sales} 
+          clients={state.clients}
           formatMoney={formatMoney} 
           onView={setSelectedSale} 
           onEdit={handleEdit}
@@ -93,7 +94,14 @@ const Sales: React.FC = () => {
         />
       )}
 
-      {selectedSale && <SaleDetailModal sale={selectedSale} onClose={() => setSelectedSale(null)} formatMoney={formatMoney} />}
+      {selectedSale && (
+        <SaleDetailModal 
+          sale={selectedSale} 
+          clients={state.clients}
+          onClose={() => setSelectedSale(null)} 
+          formatMoney={formatMoney} 
+        />
+      )}
       
       {showReportModal && (
         <SalesReportModal 
@@ -115,11 +123,20 @@ const displayDate = (dateStr: string) => {
   return `${day}/${month}/${year}`;
 };
 
-const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, onView: (s: Sale) => void, onEdit: (s: Sale) => void, onCancel: (id: string) => Promise<void> }> = ({ sales, formatMoney, onView, onEdit, onCancel }) => {
+const SalesList: React.FC<{ sales: Sale[], clients: Client[], formatMoney: (n: number) => string, onView: (s: Sale) => void, onEdit: (s: Sale) => void, onCancel: (id: string) => Promise<void> }> = ({ sales, clients, formatMoney, onView, onEdit, onCancel }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const getClientInfo = (sale: Sale) => {
+    const client = (clients || []).find(c => String(c.id) === String(sale.clientId));
+    return {
+      name: client ? client.name : sale.clientName,
+      docType: client ? client.docType : sale.clientDocType,
+      docNumber: client ? client.docNumber : sale.clientDocNumber
+    };
+  };
 
   const sortedSales = useMemo(() => {
     return Array.isArray(sales) ? [...sales].sort((a, b) => String(b.date).localeCompare(String(a.date))) : [];
@@ -127,7 +144,8 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
 
   const filteredSales = sortedSales.filter(s => {
     const term = String(searchTerm || '').toLowerCase();
-    const cName = String(s.clientName || '').toLowerCase();
+    const clientInfo = getClientInfo(s);
+    const cName = String(clientInfo.name || '').toLowerCase();
     const dNum = String(s.documentNumber || '').toLowerCase();
     return cName.includes(term) || dNum.includes(term);
   });
@@ -165,37 +183,40 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
         {paginatedSales.length === 0 ? (
           <div className="p-20 text-center text-gray-400 font-bold italic uppercase tracking-widest text-xs">Vacio</div>
         ) : (
-          paginatedSales.map(sale => (
-            <div key={sale.id} className="p-6 space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{displayDate(sale.date)}</p>
-                  <p className="font-black text-gray-900 dark:text-white leading-tight uppercase">{sale.clientName}</p>
-                  <p className="text-[10px] font-bold text-primary-600 uppercase mt-1">{sale.documentType} {sale.documentNumber}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-black text-primary-600 leading-none">{formatMoney(sale.total)}</p>
-                  <div className="flex flex-col items-end gap-1 mt-2">
-                    <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                      sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
-                      sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {sale.saleStatus}
-                    </span>
+          paginatedSales.map(sale => {
+            const clientInfo = getClientInfo(sale);
+            return (
+              <div key={sale.id} className="p-6 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{displayDate(sale.date)}</p>
+                    <p className="font-black text-gray-900 dark:text-white leading-tight uppercase">{clientInfo.name}</p>
+                    <p className="text-[10px] font-bold text-primary-600 uppercase mt-1">{sale.documentType} {sale.documentNumber}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-primary-600 leading-none">{formatMoney(sale.total)}</p>
+                    <div className="flex flex-col items-end gap-1 mt-2">
+                      <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                        sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
+                        sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {sale.saleStatus}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <div className="flex gap-2">
+                  <button onClick={() => onView(sale)} title="Ver Detalle" className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Ver</button>
+                  <button onClick={() => onEdit(sale)} title="Editar Venta" className="flex-1 py-3 bg-primary-50 dark:bg-primary-900/20 rounded-xl text-xs font-black uppercase tracking-widest text-primary-600">Editar</button>
+                  {sale.saleStatus !== 'Anulado' && (
+                    <button onClick={() => handleCancelClick(sale.id)} title="Anular Venta" className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl">
+                      <XCircle size={18} />
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => onView(sale)} title="Ver Detalle" className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Ver</button>
-                <button onClick={() => onEdit(sale)} title="Editar Venta" className="flex-1 py-3 bg-primary-50 dark:bg-primary-900/20 rounded-xl text-xs font-black uppercase tracking-widest text-primary-600">Editar</button>
-                {sale.saleStatus !== 'Anulado' && (
-                  <button onClick={() => handleCancelClick(sale.id)} title="Anular Venta" className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl">
-                    <XCircle size={18} />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -212,44 +233,47 @@ const SalesList: React.FC<{ sales: Sale[], formatMoney: (n: number) => string, o
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {paginatedSales.map((sale) => (
-              <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                <td className="px-8 py-5 text-sm font-bold text-gray-900 dark:text-white">{displayDate(sale.date)}</td>
-                <td className="px-8 py-5">
-                  <div className="text-sm font-black text-gray-900 dark:text-white uppercase">{sale.clientName}</div>
-                  <div className="text-[10px] text-gray-400 font-bold">{sale.clientDocType}: {sale.clientDocNumber}</div>
-                </td>
-                <td className="px-8 py-5">
-                  <div className="text-[10px] font-black text-primary-600 uppercase tracking-widest">{sale.documentType}</div>
-                  <div className="text-sm font-black text-gray-900 dark:text-white">{sale.documentNumber}</div>
-                </td>
-                <td className="px-8 py-5 text-right text-base font-black text-primary-600">{formatMoney(sale.total)}</td>
-                <td className="px-8 py-5 text-center">
-                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
-                    sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
-                    sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {sale.saleStatus}
-                  </span>
-                </td>
-                <td className="px-8 py-5">
-                  <div className="flex items-center justify-center gap-3">
-                    <button onClick={() => onView(sale)} title="Ver Detalle Completo" className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Eye size={18} /></button>
-                    <button onClick={() => onEdit(sale)} title="Editar Venta Seleccionada" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
-                    {sale.saleStatus !== 'Anulado' && (
-                      <button 
-                        disabled={isCancelling === sale.id}
-                        onClick={() => handleCancelClick(sale.id)} 
-                        title="Anular Operación"
-                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl disabled:opacity-50"
-                      >
-                        {isCancelling === sale.id ? <Loader2 className="animate-spin" size={18} /> : <XCircle size={18} />}
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {paginatedSales.map((sale) => {
+              const clientInfo = getClientInfo(sale);
+              return (
+                <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="px-8 py-5 text-sm font-bold text-gray-900 dark:text-white">{displayDate(sale.date)}</td>
+                  <td className="px-8 py-5">
+                    <div className="text-sm font-black text-gray-900 dark:text-white uppercase">{clientInfo.name}</div>
+                    <div className="text-[10px] text-gray-400 font-bold">{clientInfo.docType}: {clientInfo.docNumber}</div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="text-[10px] font-black text-primary-600 uppercase tracking-widest">{sale.documentType}</div>
+                    <div className="text-sm font-black text-gray-900 dark:text-white">{sale.documentNumber}</div>
+                  </td>
+                  <td className="px-8 py-5 text-right text-base font-black text-primary-600">{formatMoney(sale.total)}</td>
+                  <td className="px-8 py-5 text-center">
+                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                      sale.saleStatus === 'Cancelado' ? 'bg-green-100 text-green-700' : 
+                      sale.saleStatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {sale.saleStatus}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center justify-center gap-3">
+                      <button onClick={() => onView(sale)} title="Ver Detalle Completo" className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Eye size={18} /></button>
+                      <button onClick={() => onEdit(sale)} title="Editar Venta Seleccionada" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
+                      {sale.saleStatus !== 'Anulado' && (
+                        <button 
+                          disabled={isCancelling === sale.id}
+                          onClick={() => handleCancelClick(sale.id)} 
+                          title="Anular Operación"
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl disabled:opacity-50"
+                        >
+                          {isCancelling === sale.id ? <Loader2 className="animate-spin" size={18} /> : <XCircle size={18} />}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -625,11 +649,14 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
       let grandTotal = 0;
 
       filtered.forEach(s => {
+        const client = (clients || []).find(c => String(c.id) === String(s.clientId));
+        const clientName = client ? client.name : s.clientName;
+        
         (s.items || []).forEach(item => {
           tableRows.push([
             displayDate(s.date),
             s.documentNumber,
-            s.clientName,
+            clientName,
             item.productName,
             `${item.quantity} ${item.unit}`,
             formatMoney(item.unitPrice),
@@ -716,7 +743,13 @@ const SalesReportModal: React.FC<{ sales: Sale[], clients: Client[], onClose: ()
   );
 };
 
-const SaleDetailModal: React.FC<{ sale: Sale, onClose: () => void, formatMoney: (n: number) => string }> = ({ sale, onClose, formatMoney }) => {
+const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => void, formatMoney: (n: number) => string }> = ({ sale, clients, onClose, formatMoney }) => {
+  const currentClient = (clients || []).find(c => String(c.id) === String(sale.clientId));
+  const displayContact = currentClient ? currentClient.contact : sale.contact;
+  const displayName = currentClient ? currentClient.name : sale.clientName;
+  const displayDocType = currentClient ? currentClient.docType : sale.clientDocType;
+  const displayDocNumber = currentClient ? currentClient.docNumber : sale.clientDocNumber;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in zoom-in-95">
       <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/10">
@@ -733,13 +766,14 @@ const SaleDetailModal: React.FC<{ sale: Sale, onClose: () => void, formatMoney: 
             <div className="space-y-4">
               <div>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Cliente</p>
-                <p className="font-black text-gray-900 dark:text-white uppercase leading-tight">{sale.clientName}</p>
+                <p className="font-black text-gray-900 dark:text-white uppercase leading-tight">{displayName}</p>
+                <p className="text-[10px] text-gray-400 font-bold">{displayDocType}: {displayDocNumber}</p>
               </div>
               <div>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Teléfono / Contacto</p>
                 <div className="flex items-center gap-2 text-primary-600 font-bold">
                   <Phone size={14} />
-                  <span>{sale.contact || 'No registrado'}</span>
+                  <span>{displayContact || 'No registrado'}</span>
                 </div>
               </div>
             </div>

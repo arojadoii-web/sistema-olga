@@ -341,7 +341,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // TAREAS
   const addTask = async (t: OperationalTask) => {
     // Generar un UUID para compatibilidad con la columna id de tipo uuid en Supabase
-    const uuid = crypto.randomUUID();
+    // Si ya viene con un UUID válido (de Dashboard), lo respetamos, si no generamos uno
+    const uuid = t.id && t.id.includes('-') ? t.id : crypto.randomUUID();
     const taskWithId = { ...t, id: uuid };
     
     setState(prev => {
@@ -351,9 +352,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
     
     try {
-      const { error } = await supabase.from('tasks').insert([taskWithId]);
+      const { error } = await supabase.from('tasks').upsert([taskWithId]);
       if (error) {
-        console.error('Error saving task to Supabase:', error);
+        console.error('Error saving task to Supabase (upsert):', error);
+      } else {
+        console.log('Task saved successfully to Supabase');
       }
     } catch (e) {
       console.error('Network error saving task to Supabase:', e);
