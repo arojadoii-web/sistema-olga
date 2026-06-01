@@ -9,7 +9,11 @@ import https from 'https';
 import dns from 'dns';
 
 // Persistent cache for resolved DNS IPs to prevent extra requests
-const dnsCache: Record<string, string> = {};
+const dnsCache: Record<string, string> = {
+  'e-beta.sunat.gob.pe': '200.41.15.49',
+  'e-facturacion.sunat.gob.pe': '190.108.97.241',
+  'e-comprobantes.sunat.gob.pe': '190.108.97.241'
+};
 
 // Custom DNS-over-HTTPS resolution function using public Secure JSON DNS APIs
 async function resolveDoh(hostname: string): Promise<string> {
@@ -308,12 +312,16 @@ export class SunatService {
           ip = await resolveDoh(hostname);
         } catch (e: any) {
           console.warn(`SUNAT: DNS-over-HTTPS pre-resolution failed for ${hostname} (will fallback): ${e.message || e}`);
-          if (!ip) {
-            if (hostname.includes('e-beta.sunat.gob.pe')) {
-              ip = '190.108.97.234';
-            } else {
-              ip = '190.108.97.241';
-            }
+        }
+
+        // Extremely robust fallback mechanism to map sunat hostnames to real IPs
+        if (!ip || ip === "undefined" || typeof ip !== "string" || !/^[0-9.]+$/.test(ip)) {
+          if (hostname.includes('e-beta.sunat.gob.pe')) {
+            ip = '200.41.15.49';
+          } else if (hostname.includes('e-comprobantes.sunat.gob.pe') || hostname.includes('e-facturacion.sunat.gob.pe')) {
+            ip = '190.108.97.241';
+          } else {
+            ip = '190.108.97.241';
           }
         }
 
