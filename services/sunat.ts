@@ -5,6 +5,47 @@ import JSZip from 'jszip';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
+import dns from 'dns';
+
+// Custom DNS lookup to resolve SUNAT hostnames using public DNS (Google & Cloudflare)
+// to bypass Vercel's DNS resolution failures.
+function getDnsSafeAgent(): https.Agent {
+  const resolver = new dns.Resolver();
+  try {
+    resolver.setServers(['8.8.8.8', '1.1.1.1', '9.9.9.9']);
+  } catch (e) {
+    console.warn("SUNAT: Failed to set custom DNS servers, falling back to OS resolver.", e);
+  }
+
+  const customLookup = (
+    hostname: string,
+    options: any,
+    callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+  ) => {
+    // If it's already an IP address, resolve instantly
+    if (/^[0-9.]+$/.test(hostname)) {
+      return callback(null, hostname, 4);
+    }
+
+    resolver.resolve4(hostname, (err, addresses) => {
+      if (err || !addresses || addresses.length === 0) {
+        // Fallback to system dns.lookup
+        dns.lookup(hostname, options, (stdErr, address, family) => {
+          callback(stdErr, address, family);
+        });
+      } else {
+        callback(null, addresses[0], 4);
+      }
+    });
+  };
+
+  return new https.Agent({
+    lookup: customLookup,
+    keepAlive: true,
+    rejectUnauthorized: false, // Prevents custom cert / domain mapping issues if any
+  });
+}
 
 export class SunatService {
   private ruc: string;
@@ -197,34 +238,56 @@ export class SunatService {
    </soapenv:Body>
 </soapenv:Envelope>`.trim();
 
-    const url = process.env.SUNAT_ENVIRONMENT === 'production' 
-      ? 'https://e-facturacion.sunat.gob.pe/ol-ti-itcpfegem/billService'
-      : 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService';
+    const isProduction = process.env.SUNAT_ENVIRONMENT === 'production';
+    
+    const urls = isProduction 
+      ? [
+          'https://e-facturacion.sunat.gob.pe/ol-ti-itcpfegem/billService',
+          'https://e-comprobantes.sunat.gob.pe/ol-it-wsspfegem/billService'
+        ]
+      : [
+          'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+        ];
 
-    try {
-      const response = await axios.post(url, soapEnvelope, {
-        headers: { 
-          'Content-Type': 'text/xml;charset=UTF-8',
-          'SOAPAction': 'urn:sendBill'
+    let lastError: any = null;
+    const httpsAgent = getDnsSafeAgent();
+
+    for (const connectUrl of urls) {
+      try {
+        console.log(`SUNAT: Attempting connection to URL: ${connectUrl}`);
+        const response = await axios.post(connectUrl, soapEnvelope, {
+          headers: { 
+            'Content-Type': 'text/xml;charset=UTF-8',
+            'SOAPAction': 'urn:sendBill'
+          },
+          httpsAgent,
+          timeout: 45000 // 45 seconds timeout
+        });
+        
+        const responseData = response.data;
+        if (responseData.includes('<soap-env:Fault') || responseData.includes('<soap:Fault')) {
+          const match = responseData.match(/<faultstring>(.*?)<\/faultstring>/) || responseData.match(/<soap-env:Fault.*?>.*?<faultstring>(.*?)<\/faultstring>/s);
+          const faultMessage = match ? match[1] : 'Unknown SOAP Fault';
+          throw new Error(`SUNAT SOAP Fault: ${faultMessage}`);
         }
-      });
-      
-      const responseData = response.data;
-      if (responseData.includes('<soap-env:Fault') || responseData.includes('<soap:Fault')) {
-        // Try to extract faultstring
-        const match = responseData.match(/<faultstring>(.*?)<\/faultstring>/) || responseData.match(/<soap-env:Fault.*?>.*?<faultstring>(.*?)<\/faultstring>/s);
-        const faultMessage = match ? match[1] : 'Unknown SOAP Fault';
-        throw new Error(`SUNAT SOAP Fault: ${faultMessage}`);
-      }
 
-      return responseData;
-    } catch (error: any) {
-      if (error.response) {
-        // Log full response data for debugging
-        console.error('SUNAT Error Response:', error.response.data);
-        throw new Error(`SUNAT Error (${error.response.status}): ${JSON.stringify(error.response.data)}`);
+        console.log(`SUNAT: Request successful using URL: ${connectUrl}`);
+        return responseData;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`SUNAT: Failed attempt on URL: ${connectUrl}. Error: ${error.message || error}`);
+        // If it is a SOAP Fault, it means we reached SUNAT but the parameters/credentials were rejected (so do not retry as it is a semantic rejection)
+        if (error.message && error.message.includes('SUNAT SOAP Fault')) {
+          break;
+        }
       }
-      throw error;
     }
+
+    // If all attempts failed
+    if (lastError && lastError.response) {
+      console.error('SUNAT Error Response:', lastError.response.data);
+      throw new Error(`SUNAT Error (${lastError.response.status}): ${JSON.stringify(lastError.response.data)}`);
+    }
+    throw lastError;
   }
 }
