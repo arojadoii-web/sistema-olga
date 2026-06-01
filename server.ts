@@ -13,9 +13,16 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-  const uploadDir = path.join(process.cwd(), "certs");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
+  const uploadDir = process.env.VERCEL
+    ? path.join("/tmp", "certs")
+    : path.join(process.cwd(), "certs");
+
+  try {
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("Folder creation error (ignoring if read-only Vercel environment):", err);
   }
 
   const storage = multer.diskStorage({
