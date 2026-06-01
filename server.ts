@@ -33,15 +33,16 @@ async function startServer() {
   app.use(express.json());
 
   // API Routes
-  app.get("/api/sunat/status", (req, res) => {
-    const certExists = fs.existsSync(path.join(uploadDir, "certificate.p12"));
-    res.json({
-      status: "ok",
-      environment: process.env.SUNAT_ENVIRONMENT || "beta",
-      ruc: process.env.SUNAT_RUC ? "Configured" : "Missing",
-      certificate: certExists ? "Uploaded" : "Missing",
-    });
+  app.get("/api/sunat/status"))
+app.get("/api/sunat/status", (req, res) => {
+  const certExists = fs.existsSync(path.join(uploadDir, "certificate.p12")) || !!process.env.SUNAT_CERT_BASE64;
+  res.json({
+    status: "ok",
+    environment: process.env.SUNAT_ENVIRONMENT || "beta",
+    ruc: process.env.SUNAT_RUC ? "Configured" : "Missing",
+    certificate: certExists ? "Uploaded" : "Missing",
   });
+});
 
   app.post("/api/sunat/upload-cert", upload.single("certificate"), (req, res) => {
     if (!req.file) {

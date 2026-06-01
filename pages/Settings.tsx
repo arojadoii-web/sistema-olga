@@ -501,7 +501,7 @@ const Settings: React.FC = () => {
                 >
                   <RefreshCw size={16} /> Subir Certificado (.p12)
                 </button>
-                <input type="file" ref={certInputRef} onChange={handleCertUpload} className="hidden" accept=".p12" />
+                <input type="file" ref={certInputRef} onChange={handleCertUpload} className="hidden" accept=".p12,.pfx,application/x-pkcs12" />
                 
                 <button 
                   onClick={testSunatInvoice}
