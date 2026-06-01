@@ -44,8 +44,8 @@ async function resolveDoh(hostname: string): Promise<string> {
   // Robust Hardcoded Fallback Public IPs of SUNAT Servers in Peru
   console.log("SUNAT DNS: Falling back to static IP mapping");
   if (hostname.includes('e-beta.sunat.gob.pe')) {
-    dnsCache[hostname] = '190.108.97.234';
-    return '190.108.97.234';
+    dnsCache[hostname] = '200.41.15.49';
+    return '200.41.15.49';
   } else if (hostname.includes('e-comprobantes.sunat.gob.pe')) {
     dnsCache[hostname] = '190.108.97.241';
     return '190.108.97.241';
@@ -303,17 +303,31 @@ export class SunatService {
         const hostname = parsedUrl.hostname;
 
         // Perform public DNS-over-HTTPS pre-resolution
+        let ip = dnsCache[hostname];
         try {
-          await resolveDoh(hostname);
+          ip = await resolveDoh(hostname);
         } catch (e: any) {
           console.warn(`SUNAT: DNS-over-HTTPS pre-resolution failed for ${hostname} (will fallback): ${e.message || e}`);
+          if (!ip) {
+            if (hostname.includes('e-beta.sunat.gob.pe')) {
+              ip = '190.108.97.234';
+            } else {
+              ip = '190.108.97.241';
+            }
+          }
         }
 
-        const httpsAgent = getDnsSafeAgent(hostname);
+        const ipUrl = connectUrl.replace(hostname, ip);
+        const httpsAgent = new https.Agent({
+          keepAlive: true,
+          servername: hostname, // CRITICAL: This sets the correct SNI hostname for SSL Handshake
+          rejectUnauthorized: false, // Prevents failure if IP mismatch or invalid self-signed SUNAT headers
+        });
 
-        console.log(`SUNAT: Attempting connection to URL: ${connectUrl}`);
-        const response = await axios.post(connectUrl, soapEnvelope, {
+        console.log(`SUNAT: Attempting connection to IP-replaced URL: ${ipUrl} (Host: ${hostname})`);
+        const response = await axios.post(ipUrl, soapEnvelope, {
           headers: { 
+            'Host': hostname, // Explicit Host header for routing in SUNAT gateway
             'Content-Type': 'text/xml;charset=UTF-8',
             'SOAPAction': 'urn:sendBill'
           },

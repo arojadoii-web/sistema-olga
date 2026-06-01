@@ -124,12 +124,8 @@ const Settings: React.FC = () => {
   const fetchSunatStatus = async () => {
     try {
       const localCert = localStorage.getItem('sunat_certificate_base64_v2') || '';
-      const headers: Record<string, string> = {};
-      if (localCert) {
-        headers['x-sunat-cert-base64'] = localCert;
-      }
-
-      const resp = await fetch('/api/sunat/status', { headers });
+      // Exclude large certificate Base64 string from GET headers to prevent HTTP payload/header limits
+      const resp = await fetch('/api/sunat/status');
       const data = await resp.json();
       
       // Override UI certificate status if present in local browser storage
@@ -197,14 +193,13 @@ const Settings: React.FC = () => {
     setTestResult(null);
     try {
       const localCert = localStorage.getItem('sunat_certificate_base64_v2') || '';
-      const headers: Record<string, string> = {};
-      if (localCert) {
-        headers['x-sunat-cert-base64'] = localCert;
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const body = JSON.stringify({ certificateBase64: localCert });
 
       const resp = await fetch('/api/sunat/test-bill', { 
         method: 'POST',
-        headers
+        headers,
+        body
       });
       const data = await resp.json();
       setTestResult(data);

@@ -62,7 +62,10 @@ const PORT = 3000;
     console.log("Starting test-bill request...");
     const headerCert = req.headers['x-sunat-cert-base64'] as string | undefined;
     const headerCertPass = req.headers['x-sunat-cert-password'] as string | undefined;
-    const sunat = new SunatService(headerCert, headerCertPass);
+    const bodyCert = req.body?.certificateBase64 as string | undefined;
+    const bodyCertPass = req.body?.certificatePassword as string | undefined;
+    
+    const sunat = new SunatService(bodyCert || headerCert, bodyCertPass || headerCertPass);
     try {
       const data = {
         id: "F001-" + Math.floor(Math.random() * 1000000).toString().padStart(8, '0'),
@@ -109,7 +112,10 @@ const PORT = 3000;
     const sale = req.body;
     const headerCert = req.headers['x-sunat-cert-base64'] as string | undefined;
     const headerCertPass = req.headers['x-sunat-cert-password'] as string | undefined;
-    const sunat = new SunatService(headerCert, headerCertPass);
+    const bodyCert = sale?.certificateBase64 as string | undefined;
+    const bodyCertPass = sale?.certificatePassword as string | undefined;
+    
+    const sunat = new SunatService(bodyCert || headerCert, bodyCertPass || headerCertPass);
     try {
       if (!process.env.SUNAT_RUC) {
         throw new Error("RUC no configurado en el servidor");
