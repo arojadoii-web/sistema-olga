@@ -39,7 +39,10 @@ const PORT = 3000;
 
   // API Routes
   app.get("/api/sunat/status", (req, res) => {
-    const certExists = fs.existsSync(path.join(uploadDir, "certificate.p12")) || !!process.env.SUNAT_CERT_BASE64;
+    const headerCert = req.headers['x-sunat-cert-base64'] as string | undefined;
+    const certExists = fs.existsSync(path.join(uploadDir, "certificate.p12")) || 
+                       !!process.env.SUNAT_CERT_BASE64 || 
+                       !!headerCert;
     res.json({
       status: "ok",
       environment: process.env.SUNAT_ENVIRONMENT || "beta",
@@ -57,7 +60,9 @@ const PORT = 3000;
 
   app.post("/api/sunat/test-bill", async (req, res) => {
     console.log("Starting test-bill request...");
-    const sunat = new SunatService();
+    const headerCert = req.headers['x-sunat-cert-base64'] as string | undefined;
+    const headerCertPass = req.headers['x-sunat-cert-password'] as string | undefined;
+    const sunat = new SunatService(headerCert, headerCertPass);
     try {
       const data = {
         id: "F001-" + Math.floor(Math.random() * 1000000).toString().padStart(8, '0'),
@@ -102,7 +107,9 @@ const PORT = 3000;
 
   app.post("/api/sunat/send-sale", async (req, res) => {
     const sale = req.body;
-    const sunat = new SunatService();
+    const headerCert = req.headers['x-sunat-cert-base64'] as string | undefined;
+    const headerCertPass = req.headers['x-sunat-cert-password'] as string | undefined;
+    const sunat = new SunatService(headerCert, headerCertPass);
     try {
       if (!process.env.SUNAT_RUC) {
         throw new Error("RUC no configurado en el servidor");

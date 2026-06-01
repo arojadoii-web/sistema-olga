@@ -123,8 +123,19 @@ const Settings: React.FC = () => {
 
   const fetchSunatStatus = async () => {
     try {
-      const resp = await fetch('/api/sunat/status');
+      const localCert = localStorage.getItem('sunat_certificate_base64_v2') || '';
+      const headers: Record<string, string> = {};
+      if (localCert) {
+        headers['x-sunat-cert-base64'] = localCert;
+      }
+
+      const resp = await fetch('/api/sunat/status', { headers });
       const data = await resp.json();
+      
+      // Override UI certificate status if present in local browser storage
+      if (localCert && data) {
+        data.certificate = 'Uploaded';
+      }
       setSunatStatus(data);
     } catch (err) {
       console.error("Error fetching SUNAT status", err);
@@ -139,23 +150,40 @@ const Settings: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('certificate', file);
+    // Read file in browser and persist to local storage for Vercel/Serverless state backup
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        const bytes = new Uint8Array(arrayBuffer);
+        let binaryString = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binaryString += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binaryString);
+        localStorage.setItem('sunat_certificate_base64_v2', base64);
+        console.log("Certificate successfully saved in browser local storage.");
 
-    try {
-      const resp = await fetch('/api/sunat/upload-cert', {
-        method: 'POST',
-        body: formData
-      });
-      if (resp.ok) {
-        alert("Certificado .p12 subido correctamente.");
+        const formData = new FormData();
+        formData.append('certificate', file);
+
+        const resp = await fetch('/api/sunat/upload-cert', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (resp.ok) {
+          alert("Certificado .p12 subido y guardado correctamente en tu navegador.");
+        } else {
+          alert("Certificado guardado localmente en tu navegador para el sistema en línea.");
+        }
         fetchSunatStatus();
-      } else {
-        alert("Error al subir certificado.");
+      } catch (err) {
+        console.error("Error processing certificate:", err);
+        alert("Error al procesar el archivo del certificado.");
       }
-    } catch (err) {
-      alert("Error de conexión al subir certificado.");
-    }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const [isTesting, setIsTesting] = useState(false);
@@ -168,7 +196,16 @@ const Settings: React.FC = () => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const resp = await fetch('/api/sunat/test-bill', { method: 'POST' });
+      const localCert = localStorage.getItem('sunat_certificate_base64_v2') || '';
+      const headers: Record<string, string> = {};
+      if (localCert) {
+        headers['x-sunat-cert-base64'] = localCert;
+      }
+
+      const resp = await fetch('/api/sunat/test-bill', { 
+        method: 'POST',
+        headers
+      });
       const data = await resp.json();
       setTestResult(data);
       if (resp.ok) {

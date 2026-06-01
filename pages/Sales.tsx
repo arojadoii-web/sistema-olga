@@ -142,9 +142,15 @@ const SalesList: React.FC<{
   const handleSendToSunat = async (sale: Sale) => {
     setIsSending(sale.id);
     try {
+      const localCert = localStorage.getItem('sunat_certificate_base64_v2') || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (localCert) {
+        headers['x-sunat-cert-base64'] = localCert;
+      }
+
       const resp = await fetch('/api/sunat/send-sale', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(sale)
       });
       const data = await resp.json();

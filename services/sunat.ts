@@ -8,42 +8,83 @@ import path from 'path';
 import https from 'https';
 import dns from 'dns';
 
-// Custom DNS lookup to resolve SUNAT hostnames using public DNS (Google & Cloudflare)
-// to bypass Vercel's DNS resolution failures.
-function getDnsSafeAgent(): https.Agent {
-  const resolver = new dns.Resolver();
-  try {
-    resolver.setServers(['8.8.8.8', '1.1.1.1', '9.9.9.9']);
-  } catch (e) {
-    console.warn("SUNAT: Failed to set custom DNS servers, falling back to OS resolver.", e);
+// Persistent cache for resolved DNS IPs to prevent extra requests
+const dnsCache: Record<string, string> = {};
+
+// Custom DNS-over-HTTPS resolution function using public Secure JSON DNS APIs
+async function resolveDoh(hostname: string): Promise<string> {
+  if (dnsCache[hostname]) {
+    return dnsCache[hostname];
   }
 
+  // List of DoH endpoints to query
+  const dohEndpoints = [
+    `https://dns.google/resolve?name=${hostname}&type=A`,
+    `https://cloudflare-dns.com/dns-query?name=${hostname}&type=A`
+  ];
+
+  for (const endpoint of dohEndpoints) {
+    try {
+      console.log(`SUNAT DNS: Querying resolver DoH: ${endpoint}`);
+      const headers = endpoint.includes('cloudflare') ? { 'accept': 'application/json' } : {};
+      const response = await axios.get(endpoint, { headers, timeout: 4000 });
+      if (response?.data?.Answer && response.data.Answer.length > 0) {
+        const ip = response.data.Answer.find((ans: any) => ans.type === 1)?.data;
+        if (ip && /^[0-9.]+$/.test(ip)) {
+          dnsCache[hostname] = ip;
+          console.log(`SUNAT DNS: Resolved ${hostname} to ${ip} via DoH`);
+          return ip;
+        }
+      }
+    } catch (err: any) {
+      console.warn(`SUNAT DNS: DoH attempt failed for ${endpoint}: ${err.message || err}`);
+    }
+  }
+
+  // Robust Hardcoded Fallback Public IPs of SUNAT Servers in Peru
+  console.log("SUNAT DNS: Falling back to static IP mapping");
+  if (hostname.includes('e-beta.sunat.gob.pe')) {
+    dnsCache[hostname] = '190.108.97.234';
+    return '190.108.97.234';
+  } else if (hostname.includes('e-comprobantes.sunat.gob.pe')) {
+    dnsCache[hostname] = '190.108.97.241';
+    return '190.108.97.241';
+  } else if (hostname.includes('e-facturacion.sunat.gob.pe')) {
+    dnsCache[hostname] = '190.108.97.241';
+    return '190.108.97.241';
+  }
+
+  throw new Error(`Could not resolve ${hostname} via public DNS or fallback`);
+}
+
+// Custom DNS lookup to resolve SUNAT hostnames using dynamic cache / DoH
+// to bypass Vercel's DNS resolution and UDP port 53 blockages.
+function getDnsSafeAgent(hostname: string): https.Agent {
   const customLookup = (
-    hostname: string,
+    host: string,
     options: any,
     callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
   ) => {
     // If it's already an IP address, resolve instantly
-    if (/^[0-9.]+$/.test(hostname)) {
-      return callback(null, hostname, 4);
+    if (/^[0-9.]+$/.test(host)) {
+      return callback(null, host, 4);
     }
 
-    resolver.resolve4(hostname, (err, addresses) => {
-      if (err || !addresses || addresses.length === 0) {
-        // Fallback to system dns.lookup
-        dns.lookup(hostname, options, (stdErr, address, family) => {
-          callback(stdErr, address, family);
-        });
-      } else {
-        callback(null, addresses[0], 4);
-      }
-    });
+    const cachedIp = dnsCache[host];
+    if (cachedIp) {
+      console.log(`SUNAT Socket: Internally mapping ${host} -> IP ${cachedIp}`);
+      return callback(null, cachedIp, 4);
+    }
+
+    // Default to OS DNS system if not pre-resolved
+    dns.lookup(host, options, callback);
   };
 
   return new https.Agent({
     lookup: customLookup,
     keepAlive: true,
-    rejectUnauthorized: false, // Prevents custom cert / domain mapping issues if any
+    servername: hostname, // CRITICAL: This sets the correct SNI hostname for SSL Handshake
+    rejectUnauthorized: false, // Prevents failure if IP mismatch or invalid self-signed SUNAT headers
   });
 }
 
@@ -53,12 +94,14 @@ export class SunatService {
   private pass: string;
   private certPass: string;
   private certPath: string;
+  private certBase64Override?: string;
 
-  constructor() {
+  constructor(certBase64Override?: string, certPassOverride?: string) {
     this.ruc = process.env.SUNAT_RUC || '';
     this.user = process.env.SUNAT_USERNAME || '';
     this.pass = process.env.SUNAT_PASSWORD || '';
-    this.certPass = process.env.SUNAT_CERT_PASSWORD || '';
+    this.certPass = certPassOverride || process.env.SUNAT_CERT_PASSWORD || '';
+    this.certBase64Override = certBase64Override;
     
     // Resolve certificate path with robust fallbacks without referencing __dirname
     const possiblePaths = [
@@ -70,13 +113,16 @@ export class SunatService {
     
     const foundPath = possiblePaths.find(p => fs.existsSync(p));
     this.certPath = foundPath || possiblePaths[0];
-    console.log("SunatService: Initialized with certPath =", this.certPath, "Exists?", !!foundPath);
+    console.log("SunatService: Initialized with certPath =", this.certPath, "Exists?", !!foundPath, "HasOverride?", !!certBase64Override);
   }
 
   private async getKeys() {
     let p12Der: string;
     
-    if (process.env.SUNAT_CERT_BASE64) {
+    if (this.certBase64Override) {
+      console.log("SunatService: Loading certificate from headers override.");
+      p12Der = Buffer.from(this.certBase64Override, 'base64').toString('binary');
+    } else if (process.env.SUNAT_CERT_BASE64) {
       console.log("SunatService: Loading certificate from SUNAT_CERT_BASE64 env variable.");
       p12Der = Buffer.from(process.env.SUNAT_CERT_BASE64, 'base64').toString('binary');
     } else {
@@ -250,10 +296,21 @@ export class SunatService {
         ];
 
     let lastError: any = null;
-    const httpsAgent = getDnsSafeAgent();
 
     for (const connectUrl of urls) {
       try {
+        const parsedUrl = new URL(connectUrl);
+        const hostname = parsedUrl.hostname;
+
+        // Perform public DNS-over-HTTPS pre-resolution
+        try {
+          await resolveDoh(hostname);
+        } catch (e: any) {
+          console.warn(`SUNAT: DNS-over-HTTPS pre-resolution failed for ${hostname} (will fallback): ${e.message || e}`);
+        }
+
+        const httpsAgent = getDnsSafeAgent(hostname);
+
         console.log(`SUNAT: Attempting connection to URL: ${connectUrl}`);
         const response = await axios.post(connectUrl, soapEnvelope, {
           headers: { 
