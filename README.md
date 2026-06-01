@@ -1,3 +1,4 @@
+
 # 🍎 Frutería Olga - Sistema Administrativo Cloud
 
 Sistema de gestión profesional para control de ventas, inventario y clientes.

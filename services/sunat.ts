@@ -1,0 +1,230 @@
+import forge from 'node-forge';
+import { SignedXml } from 'xml-crypto';
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import JSZip from 'jszip';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+
+export class SunatService {
+  private ruc: string;
+  private user: string;
+  private pass: string;
+  private certPass: string;
+  private certPath: string;
+
+  constructor() {
+    this.ruc = process.env.SUNAT_RUC || '';
+    this.user = process.env.SUNAT_USERNAME || '';
+    this.pass = process.env.SUNAT_PASSWORD || '';
+    this.certPass = process.env.SUNAT_CERT_PASSWORD || '';
+    
+    // Resolve certificate path with robust fallbacks without referencing __dirname
+    const possiblePaths = [
+      path.join(process.cwd(), 'certs', 'certificate.p12'),
+      path.join(process.cwd(), '..', 'certs', 'certificate.p12'),
+      '/app/applet/certs/certificate.p12',
+      '/certs/certificate.p12',
+    ];
+    
+    const foundPath = possiblePaths.find(p => fs.existsSync(p));
+    this.certPath = foundPath || possiblePaths[0];
+    console.log("SunatService: Initialized with certPath =", this.certPath, "Exists?", !!foundPath);
+  }
+
+  private async getKeys() {
+    let p12Der: string;
+    
+    if (process.env.SUNAT_CERT_BASE64) {
+      console.log("SunatService: Loading certificate from SUNAT_CERT_BASE64 env variable.");
+      p12Der = Buffer.from(process.env.SUNAT_CERT_BASE64, 'base64').toString('binary');
+    } else {
+      if (!fs.existsSync(this.certPath)) {
+        throw new Error(`Certificate not found at: ${this.certPath} and SUNAT_CERT_BASE64 is not set`);
+      }
+      p12Der = fs.readFileSync(this.certPath, 'binary');
+    }
+    const p12Asn1 = forge.asn1.fromDer(p12Der);
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, this.certPass);
+    
+    const bags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+    const keyBag = bags[forge.pki.oids.pkcs8ShroudedKeyBag];
+    if (!keyBag || !keyBag[0] || !keyBag[0].key) throw new Error("Private key not found in P12");
+    const key = keyBag[0].key;
+
+    const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
+    const certBag = certBags[forge.pki.oids.certBag];
+    if (!certBag || !certBag[0] || !certBag[0].cert) throw new Error("Certificate not found in P12");
+    const cert = certBag[0].cert;
+
+    return {
+      privateKey: forge.pki.privateKeyToPem(key),
+      certificate: forge.pki.certificateToPem(cert),
+      certAsn1: cert
+    };
+  }
+
+  async sendInvoice(xmlString: string, fileName: string) {
+    const { privateKey, certificate } = await this.getKeys();
+
+    // 1. Sign XML
+    const pureCert = certificate
+      .replace(/-----BEGIN CERTIFICATE-----/g, '')
+      .replace(/-----END CERTIFICATE-----/g, '')
+      .replace(/\n|\r/g, '');
+
+    console.log("--- DEBUG SUNAT SIGNATURE ---");
+    console.log("XML Type:", typeof xmlString);
+    console.log("XML Length:", xmlString?.length);
+    console.log("XML Content (first 500 chars):", xmlString?.substring(0, 500));
+    
+    if (!xmlString || typeof xmlString !== 'string') {
+      throw new Error(`Invalid XML input: received ${typeof xmlString}`);
+    }
+
+    // Parse XML to Document to ensure it's valid and for structure check
+    const parser = new DOMParser({
+        errorHandler: (level, msg) => {
+            if (level === 'error') console.error(`[xmldom ${level}]`, msg);
+        }
+    });
+    const doc = parser.parseFromString(xmlString, 'text/xml');
+    
+    // Check if parsing failed
+    if (!doc || !doc.documentElement || doc.getElementsByTagName('parsererror').length > 0) {
+      console.error("XML Parsing Error detected.");
+      throw new Error("Invalid XML document source: parser error");
+    }
+
+    // Verify ExtensionContent exists
+    const extNamespace = 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2';
+    const extensionContent = doc.getElementsByTagNameNS(extNamespace, 'ExtensionContent')[0]
+      || doc.getElementsByTagName('ext:ExtensionContent')[0]
+      || doc.getElementsByTagName('ExtensionContent')[0];
+    
+    if (!extensionContent) {
+      console.error("Structure check failed: <ext:ExtensionContent> not found.");
+      throw new Error("Required node <ext:ExtensionContent> not found in XML structure. The UBL 2.1 structure is mandatory for SUNAT.");
+    }
+
+    const sig = new SignedXml();
+
+    sig.signingKey = privateKey;
+
+    (sig as any).keyInfoProvider = {
+      getKeyInfo: (key: any, prefix: string) =>
+        `<${prefix}:X509Data><${prefix}:X509Certificate>${pureCert}</${prefix}:X509Certificate></${prefix}:X509Data>`
+    };
+
+    sig.addReference(
+      "//*[local-name()='Invoice']",
+      [
+        "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+        "http://www.w3.org/2001/10/xml-exc-c14n#"
+      ],
+      "http://www.w3.org/2001/04/xmlenc#sha256",
+      "", // uri
+      null as any,
+      null as any,
+      true // isEmptyUri
+    );
+
+    sig.signatureAlgorithm =
+     "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
+    let signedXml = '';
+    try {
+      console.log("Computing signature with xml-crypto 2.1.6 (Direct insertion)...");
+      
+      // Strip XML declaration for signing to prevent issues with xml-crypto XPath parser
+      const xmlToSign = xmlString.replace(/^<\?xml.*?\?>\s*/, '').trim();
+      
+      sig.computeSignature(xmlToSign, {
+        prefix: "ds",
+        attrs: {
+          Id: "SIGN-EMISOR"
+        },
+        location: {
+          reference: "//*[local-name()='ExtensionContent']",
+          action: "append"
+        }
+      });
+      
+      signedXml = sig.getSignedXml();
+      console.log("Signature computed and inserted into ExtensionContent.");
+    } catch (e: any) {
+      console.error("Signature computation failed. Error:", e);
+      throw new Error(`Signature computation failed: ${e.message}`);
+    }
+
+    
+    if (!signedXml.startsWith('<?xml')) {
+      signedXml = '<?xml version="1.0" encoding="UTF-8"?>\n' + signedXml;
+    }
+    
+    console.log("ROOT TAG CHECK:");
+    console.log(
+     signedXml.match(/<[a-zA-Z0-9:]*Invoice[^>]*>/)?.[0]
+    );
+
+    console.log("SIGNED XML FINAL:");
+    console.log(signedXml);
+    
+    console.log("Signed XML prepared. Length:", signedXml.length);
+
+    // 2. Zip
+    const zip = new JSZip();
+    // Ensure XML declaration is correct and followed by newline if needed, but usually just the string is fine
+    zip.file(`${fileName}.xml`, signedXml);
+    const zipContent = await zip.generateAsync({ type: 'nodebuffer' });
+
+    // 3. Prepare SOAP
+    const soapEnvelope = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+   <soapenv:Header>
+      <wsse:Security>
+         <wsse:UsernameToken>
+            <wsse:Username>${this.ruc}${this.user}</wsse:Username>
+            <wsse:Password>${this.pass}</wsse:Password>
+         </wsse:UsernameToken>
+      </wsse:Security>
+   </soapenv:Header>
+   <soapenv:Body>
+      <ser:sendBill>
+         <fileName>${fileName}.zip</fileName>
+         <contentFile>${zipContent.toString('base64')}</contentFile>
+      </ser:sendBill>
+   </soapenv:Body>
+</soapenv:Envelope>`.trim();
+
+    const url = process.env.SUNAT_ENVIRONMENT === 'production' 
+      ? 'https://e-facturacion.sunat.gob.pe/ol-ti-itcpfegem/billService'
+      : 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService';
+
+    try {
+      const response = await axios.post(url, soapEnvelope, {
+        headers: { 
+          'Content-Type': 'text/xml;charset=UTF-8',
+          'SOAPAction': 'urn:sendBill'
+        }
+      });
+      
+      const responseData = response.data;
+      if (responseData.includes('<soap-env:Fault') || responseData.includes('<soap:Fault')) {
+        // Try to extract faultstring
+        const match = responseData.match(/<faultstring>(.*?)<\/faultstring>/) || responseData.match(/<soap-env:Fault.*?>.*?<faultstring>(.*?)<\/faultstring>/s);
+        const faultMessage = match ? match[1] : 'Unknown SOAP Fault';
+        throw new Error(`SUNAT SOAP Fault: ${faultMessage}`);
+      }
+
+      return responseData;
+    } catch (error: any) {
+      if (error.response) {
+        // Log full response data for debugging
+        console.error('SUNAT Error Response:', error.response.data);
+        throw new Error(`SUNAT Error (${error.response.status}): ${JSON.stringify(error.response.data)}`);
+      }
+      throw error;
+    }
+  }
+}

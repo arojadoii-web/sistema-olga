@@ -459,4 +459,3 @@ const PurchaseDetailModal: React.FC<{ purchase: Purchase, suppliers: Supplier[],
 };
 
 export default Purchases;
-

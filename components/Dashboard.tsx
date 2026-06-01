@@ -299,64 +299,64 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dynamicChartData} margin={{ top: 40, right: 30, left: 10, bottom: 0 }}>
                 <defs><linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af', fontWeight: 'bold'}} dy={10} padding={{ left: 20, right: 20 }} />
-                <YAxis hide />
-                <Tooltip />
-                <Area type="monotone" dataKey="cantidad" stroke="#22c55e" strokeWidth={4} fillOpacity={1} fill="url(#colorQty)">
-                  <LabelList dataKey="cantidad" position="top" offset={15} style={{ fontSize: 12, fill: '#22c55e', fontWeight: 'bold' }} />
-                </Area>
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-green-50 text-green-500 rounded-xl"><Landmark size={18} /></div>
-            <h3 className="text-lg font-black text-gray-800 dark:text-white tracking-tighter">Tendencia Monto</h3>
-          </div>
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dynamicChartData} margin={{ top: 40, right: 30, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af', fontWeight: 'bold'}} dy={10} padding={{ left: 10, right: 10 }} />
-                <YAxis hide />
-                <Tooltip cursor={{fill: 'transparent'}} />
-                <Bar dataKey="ventas" radius={[12, 12, 0, 0]} barSize={40}>
-                   {dynamicChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.isSelected ? '#15803d' : '#22c55e'} />
-                  ))}
-                  <LabelList dataKey="ventas" position="top" offset={15} formatter={(v: number) => v > 0 ? `S/ ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''} style={{ fontSize: 10, fill: '#22c55e', fontWeight: 'bold' }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-black text-gray-800 dark:text-white tracking-tighter mb-6">Estado Financiero</h3>
-          <div className="h-[280px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={[
-                    { name: 'Cancelado', value: stats.totalSales - stats.pendingSales }, 
-                    { name: 'Pendiente', value: stats.pendingSales }
-                  ]} 
-                  cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value"
-                  label={renderCustomizedPieLabel}
-                  labelLine={false}
-                >
-                  <Cell fill="#22c55e" />
-                  <Cell fill="#eab308" />
-                  <Label 
-                    value={formatMoney(stats.totalSales - stats.pendingSales)} 
-                    position="center" 
-                    style={{ fontSize: '18px', fontWeight: '900', fill: '#22c55e' }} 
-                  />
-                </Pie>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
+                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af', fontWeight: 'bold'}} dy={10} padding={{ left: 20, right: 20 }} />
+                 <YAxis hide />
+                 <Tooltip />
+                 <Area type="monotone" dataKey="cantidad" stroke="#22c55e" strokeWidth={4} fillOpacity={1} fill="url(#colorQty)">
+                   <LabelList dataKey="cantidad" position="top" offset={15} style={{ fontSize: 12, fill: '#22c55e', fontWeight: 'bold' }} />
+                 </Area>
+               </AreaChart>
+             </ResponsiveContainer>
+           </div>
+         </div>
+         <div className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-700">
+           <div className="flex items-center gap-3 mb-8">
+             <div className="p-2 bg-green-50 text-green-500 rounded-xl"><Landmark size={18} /></div>
+             <h3 className="text-lg font-black text-gray-800 dark:text-white tracking-tighter">Tendencia Monto</h3>
+           </div>
+           <div className="h-[280px]">
+             <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={dynamicChartData} margin={{ top: 40, right: 30, left: 10, bottom: 0 }}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#374151' : '#f3f4f6'} />
+                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af', fontWeight: 'bold'}} dy={10} padding={{ left: 10, right: 10 }} />
+                 <YAxis hide />
+                 <Tooltip cursor={{fill: 'transparent'}} />
+                 <Bar dataKey="ventas" radius={[12, 12, 0, 0]} barSize={40}>
+                    {dynamicChartData.map((entry, index) => (
+                     <Cell key={`cell-${index}`} fill={entry.isSelected ? '#3730a3' : '#4f46e5'} />
+                   ))}
+                   <LabelList dataKey="ventas" position="top" offset={15} formatter={(v: number) => v > 0 ? `S/ ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''} style={{ fontSize: 10, fill: '#4f46e5', fontWeight: 'bold' }} />
+                 </Bar>
+               </BarChart>
+             </ResponsiveContainer>
+           </div>
+         </div>
+       </div>
+ 
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <div className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-700">
+           <h3 className="text-lg font-black text-gray-800 dark:text-white tracking-tighter mb-6">Estado Financiero</h3>
+           <div className="h-[280px] relative">
+             <ResponsiveContainer width="100%" height="100%">
+               <PieChart>
+                 <Pie 
+                   data={[
+                     { name: 'Cancelado', value: stats.totalSales - stats.pendingSales }, 
+                     { name: 'Pendiente', value: stats.pendingSales }
+                   ]} 
+                   cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value"
+                   label={renderCustomizedPieLabel}
+                   labelLine={false}
+                 >
+                   <Cell fill="#22c55e" />
+                   <Cell fill="#eab308" />
+                   <Label 
+                     value={formatMoney(stats.totalSales - stats.pendingSales)} 
+                     position="center" 
+                     style={{ fontSize: '18px', fontWeight: '900', fill: '#22c55e' }} 
+                   />
+                 </Pie>
                 <Tooltip />
                 <Legend iconType="circle" verticalAlign="bottom" height={36} />
               </PieChart>

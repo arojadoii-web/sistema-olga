@@ -79,6 +79,7 @@ const Settings: React.FC = () => {
     try {
       const wb = XLSX.utils.book_new();
       
+      // EXPORTACIÓN DE TODAS LAS BASES DE DATOS DEL SISTEMA
       const datasets = [
         { name: 'Productos', data: state.products },
         { name: 'Clientes', data: state.clients },
@@ -90,6 +91,8 @@ const Settings: React.FC = () => {
       ];
 
       datasets.forEach(set => {
+        // Limpieza de datos para evitar el error de longitud de celda en Excel (32,767 caracteres)
+        // Esto afecta principalmente a las fotos de perfil en base64
         const sanitizedData = (set.data && set.data.length > 0) 
           ? set.data.map((row: any) => {
               const newRow = { ...row };
@@ -115,9 +118,78 @@ const Settings: React.FC = () => {
     }
   };
 
+  const [sunatStatus, setSunatStatus] = useState<any>(null);
+  const certInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchSunatStatus = async () => {
+    try {
+      const resp = await fetch('/api/sunat/status');
+      const data = await resp.json();
+      setSunatStatus(data);
+    } catch (err) {
+      console.error("Error fetching SUNAT status", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSunatStatus();
+  }, []);
+
+  const handleCertUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('certificate', file);
+
+    try {
+      const resp = await fetch('/api/sunat/upload-cert', {
+        method: 'POST',
+        body: formData
+      });
+      if (resp.ok) {
+        alert("Certificado .p12 subido correctamente.");
+        fetchSunatStatus();
+      } else {
+        alert("Error al subir certificado.");
+      }
+    } catch (err) {
+      alert("Error de conexión al subir certificado.");
+    }
+  };
+
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+
+  const testSunatInvoice = async () => {
+    if (!sunatStatus?.ruc || sunatStatus.ruc === 'Missing') {
+      return alert("Debe configurar el RUC en el archivo .env primero.");
+    }
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const resp = await fetch('/api/sunat/test-bill', { method: 'POST' });
+      const data = await resp.json();
+      setTestResult(data);
+      if (resp.ok) {
+        alert("¡Éxito! Factura enviada a SUNAT.");
+      } else {
+        const errorMsg = data.error || "Error desconocido";
+        console.error("SUNAT Error:", errorMsg);
+      }
+    } catch (err) {
+      alert("Error al enviar factura de prueba. Verifique que el servidor esté activo.");
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        
+        {/* Mi Perfil */}
         <div className="bg-white dark:bg-gray-800 p-12 rounded-[3.5rem] shadow-sm border border-gray-50 dark:border-gray-700">
           <div className="flex items-center gap-4 mb-10">
             <div className="w-10 h-10 bg-green-50 dark:bg-green-900/20 text-green-500 rounded-2xl flex items-center justify-center">
@@ -125,6 +197,7 @@ const Settings: React.FC = () => {
             </div>
             <h3 className="text-xl font-black text-gray-800 dark:text-white">Mi Perfil</h3>
           </div>
+          
           <div className="flex flex-col items-center mb-10">
             <div className="relative mb-4">
               <div className="w-36 h-36 bg-gray-100 rounded-[3rem] overflow-hidden border-8 border-gray-50 dark:border-gray-700 shadow-xl flex items-center justify-center">
@@ -146,6 +219,7 @@ const Settings: React.FC = () => {
             <h4 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{state.user?.name}</h4>
             <span className="mt-2 px-4 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-black uppercase tracking-widest">{state.user?.role}</span>
           </div>
+
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-tight">Contraseña:</span>
@@ -164,6 +238,7 @@ const Settings: React.FC = () => {
                 </div>
               </div>
             </div>
+
             <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
               <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest">ACTUALIZAR CLAVE</label>
               <div className="flex gap-3">
@@ -186,6 +261,7 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
+        {/* Personalización Global */}
         <div className="bg-white dark:bg-gray-800 p-12 rounded-[3.5rem] shadow-sm border border-gray-50 dark:border-gray-700">
           <div className="flex items-center gap-4 mb-10">
             <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center">
@@ -193,6 +269,7 @@ const Settings: React.FC = () => {
             </div>
             <h3 className="text-xl font-black text-gray-800 dark:text-white">Personalización Global</h3>
           </div>
+
           <div className="space-y-10">
             <div>
               <div className="flex justify-between items-start mb-4">
@@ -201,11 +278,22 @@ const Settings: React.FC = () => {
                   <p className="text-[10px] text-gray-400 font-bold uppercase">INTERFAZ CLARA / OSCURA</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 p-1.5 rounded-2xl flex gap-1">
-                  <button onClick={() => setTheme('light')} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.theme === 'light' ? 'bg-white shadow-md text-green-600' : 'text-gray-400'}`}><Sun size={14} /> CLARO</button>
-                  <button onClick={() => setTheme('dark')} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.theme === 'dark' ? 'bg-gray-600 shadow-md text-green-600' : 'text-gray-400'}`}><Moon size={14} /> OSCURO</button>
+                  <button 
+                    onClick={() => setTheme('light')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.theme === 'light' ? 'bg-white shadow-md text-green-600' : 'text-gray-400'}`}
+                  >
+                    <Sun size={14} /> CLARO
+                  </button>
+                  <button 
+                    onClick={() => setTheme('dark')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.theme === 'dark' ? 'bg-gray-600 shadow-md text-green-600' : 'text-gray-400'}`}
+                  >
+                    <Moon size={14} /> OSCURO
+                  </button>
                 </div>
               </div>
             </div>
+
             <div className="border-t border-gray-50 dark:border-gray-700 pt-10">
               <div className="flex justify-between items-start mb-8">
                 <div>
@@ -213,12 +301,25 @@ const Settings: React.FC = () => {
                   <p className="text-[10px] text-gray-400 font-bold uppercase">SOLES (PEN) O DÓLARES (USD)</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 p-1.5 rounded-2xl flex gap-1">
-                  <button onClick={() => setCurrency('PEN')} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.currency === 'PEN' ? 'bg-white shadow-md text-green-600' : 'text-gray-400'}`}><Wallet size={14} /> SOLES</button>
-                  <button onClick={() => setCurrency('USD')} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.currency === 'USD' ? 'bg-white shadow-md text-green-600' : 'text-gray-400'}`}><DollarSign size={14} /> USD</button>
+                  <button 
+                    onClick={() => setCurrency('PEN')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.currency === 'PEN' ? 'bg-white shadow-md text-green-600' : 'text-gray-400'}`}
+                  >
+                    <Wallet size={14} /> SOLES
+                  </button>
+                  <button 
+                    onClick={() => setCurrency('USD')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${state.currency === 'USD' ? 'bg-white shadow-md text-green-600' : 'text-gray-400'}`}
+                  >
+                    <DollarSign size={14} /> USD
+                  </button>
                 </div>
               </div>
+
               <div className="bg-amber-50 dark:bg-amber-900/10 p-8 rounded-[2.5rem] border border-amber-100 dark:border-amber-900/20 flex items-center gap-6">
-                <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center shadow-sm text-amber-500"><Landmark size={24} /></div>
+                <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center shadow-sm text-amber-500">
+                  <Landmark size={24} />
+                </div>
                 <div>
                   <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">TIPO DE CAMBIO ACTUAL</p>
                   <p className="text-3xl font-black text-amber-700 dark:text-amber-400 tracking-tighter">S/ {state.exchangeRate.toFixed(2)}</p>
@@ -229,39 +330,211 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
+        {/* Estado de la Base de Datos */}
+        <div className="bg-white dark:bg-gray-800 p-12 rounded-[3.5rem] shadow-sm border border-gray-50 dark:border-gray-700">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
+              <Database size={22} />
+            </div>
+            <h3 className="text-xl font-black text-gray-800 dark:text-white">Estado de la Base de Datos</h3>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              { label: 'Productos', key: 'products' },
+              { label: 'Clientes', key: 'clients' },
+              { label: 'Proveedores', key: 'suppliers' },
+              { label: 'Ventas', key: 'sales' },
+              { label: 'Compras', key: 'purchases' },
+              { label: 'Usuarios', key: 'users' }
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-gray-700/30 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${dbStatus[item.key] === true ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{item.label}</span>
+                </div>
+                {dbStatus[item.key] === 'loading' ? (
+                  <RefreshCw size={14} className="animate-spin text-gray-300" />
+                ) : dbStatus[item.key] ? (
+                  <CheckCircle2 size={18} className="text-green-500" />
+                ) : (
+                  <XCircle size={18} className="text-red-500" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Respaldo de Información */}
+        <div className="bg-gradient-to-br from-green-500 to-green-600 p-12 rounded-[3.5rem] shadow-2xl text-white flex flex-col justify-center relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:scale-110 transition-transform">
+             <FileSpreadsheet size={180} />
+          </div>
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+              <FileSpreadsheet size={22} />
+            </div>
+            <h3 className="text-2xl font-black tracking-tight">Respaldo de Información</h3>
+          </div>
+          <p className="text-green-50 font-medium mb-10 opacity-90 leading-relaxed">
+            Descarga todos los registros del sistema (Productos, Clientes, Ventas, etc) en un archivo Excel compatible.
+          </p>
+          <button 
+            type="button"
+            onClick={exportToExcel}
+            disabled={isExporting}
+            className="w-full bg-white text-green-700 font-black py-6 rounded-3xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {isExporting ? <RefreshCw className="animate-spin" size={24} /> : <Download size={24} />}
+            {isExporting ? 'Procesando...' : 'Descargar Todo a Excel'}
+          </button>
+        </div>
+
+        {/* Servicios de Identidad (ApisPerú) */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-12 rounded-[3.5rem] shadow-sm border border-gray-50 dark:border-gray-700">
           <div className="flex items-center gap-4 mb-10">
-            <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center"><Globe size={22} /></div>
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center">
+              <Globe size={22} />
+            </div>
             <div>
               <h3 className="text-xl font-black text-gray-800 dark:text-white">Servicio de Identidad (ApisPerú)</h3>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">CONFIGURACIÓN DE CONSULTAS DNI Y RUC</p>
             </div>
           </div>
+          
           <form onSubmit={handleSaveApis} className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">URL Consulta DNI</label>
-                <input type="text" value={apiConfig.dniUrl} onChange={e => setApiConfig({...apiConfig, dniUrl: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none text-xs font-bold font-mono outline-none focus:ring-2 focus:ring-green-500" />
+                <input 
+                  type="text" 
+                  value={apiConfig.dniUrl}
+                  onChange={e => setApiConfig({...apiConfig, dniUrl: e.target.value})}
+                  className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none text-xs font-bold font-mono outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="https://..."
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">URL Consulta RUC</label>
-                <input type="text" value={apiConfig.rucUrl} onChange={e => setApiConfig({...apiConfig, rucUrl: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none text-xs font-bold font-mono outline-none focus:ring-2 focus:ring-green-500" />
+                <input 
+                  type="text" 
+                  value={apiConfig.rucUrl}
+                  onChange={e => setApiConfig({...apiConfig, rucUrl: e.target.value})}
+                  className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none text-xs font-bold font-mono outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="https://..."
+                />
               </div>
             </div>
+
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-3 ml-1 tracking-widest">API TOKEN (JWT)</label>
                 <div className="relative">
                   <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                  <input type="password" value={apiConfig.token} onChange={e => setApiConfig({...apiConfig, token: e.target.value})} className="w-full pl-14 pr-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none text-[10px] font-bold outline-none focus:ring-2 focus:ring-green-500" />
+                  <input 
+                    type="password" 
+                    value={apiConfig.token}
+                    onChange={e => setApiConfig({...apiConfig, token: e.target.value})}
+                    className="w-full pl-14 pr-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none text-[10px] font-bold outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Token JWT de ApisPerú..."
+                  />
                 </div>
               </div>
+              
               <div className="pt-4 flex flex-col justify-end h-full">
-                <button type="submit" className="w-full py-5 bg-green-500 text-white font-black rounded-3xl text-[11px] uppercase tracking-widest shadow-xl shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"><ShieldCheck size={20} /> Actualizar Conectividad</button>
+                <button 
+                  type="submit" 
+                  className="w-full py-5 bg-green-500 text-white font-black rounded-3xl text-[11px] uppercase tracking-widest shadow-xl shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  <ShieldCheck size={20} />
+                  Actualizar Conectividad
+                </button>
               </div>
             </div>
           </form>
+
+          <div className="mt-10 p-6 bg-gray-50 dark:bg-gray-700/30 rounded-3xl flex items-start gap-4">
+            <Info size={18} className="text-indigo-500 mt-1 shrink-0" />
+            <p className="text-[10px] font-bold text-gray-500 leading-relaxed uppercase">
+              Asegúrate de que el token sea el proporcionado por ApisPerú. Estos parámetros permiten al sistema buscar nombres y direcciones automáticamente para agilizar el registro de clientes.
+            </p>
+          </div>
         </div>
+
+        {/* Facturación Electrónica SUNAT */}
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-12 rounded-[3.5rem] shadow-sm border border-gray-50 dark:border-gray-700">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center">
+              <Landmark size={22} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-gray-800 dark:text-white">Facturación Electrónica (SUNAT)</h3>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">VINCULACIÓN DIRECTA SIN COSTO</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-8 rounded-3xl space-y-4">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sincronización</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Entorno:</span>
+                  <span className="text-xs font-black text-orange-500 uppercase">{sunatStatus?.environment}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">RUC Configurado:</span>
+                  <span className={`text-xs font-black uppercase ${sunatStatus?.ruc === 'Configured' ? 'text-green-500' : 'text-red-500'}`}>{sunatStatus?.ruc}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Certificado .p12:</span>
+                  <span className={`text-xs font-black uppercase ${sunatStatus?.certificate === 'Uploaded' ? 'text-green-500' : 'text-red-500'}`}>{sunatStatus?.certificate}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-8 rounded-3xl space-y-6 flex flex-col justify-center">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Acciones</p>
+              <div className="space-y-4">
+                <button 
+                  onClick={() => certInputRef.current?.click()}
+                  className="w-full py-4 bg-white dark:bg-gray-800 border-2 border-orange-100 dark:border-orange-900/30 text-orange-600 dark:text-orange-400 font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-orange-50 transition-all flex items-center justify-center gap-2"
+                >
+                  <RefreshCw size={16} /> Subir Certificado (.p12)
+                </button>
+                <input type="file" ref={certInputRef} onChange={handleCertUpload} className="hidden" accept=".p12" />
+                
+                <button 
+                  onClick={testSunatInvoice}
+                  disabled={sunatStatus?.certificate !== 'Uploaded' || isTesting}
+                  className="w-full py-4 bg-orange-500 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <RefreshCw size={16} className={isTesting ? "animate-spin" : ""} /> 
+                  {isTesting ? "Enviando..." : "Probar Envío (Beta)"}
+                </button>
+
+                {testResult && (
+                  <div className={`mt-4 p-4 rounded-xl text-[10px] font-mono overflow-auto max-h-40 ${testResult.error ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'}`}>
+                    <p className="font-black mb-2 uppercase">{testResult.error ? 'Error de Respuesta' : 'Respuesta Exitosa'}:</p>
+                    <pre className="whitespace-pre-wrap">{JSON.stringify(testResult, null, 2)}</pre>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-orange-50 dark:bg-orange-900/10 p-8 rounded-3xl flex items-start gap-4">
+              <Info size={18} className="text-orange-500 mt-1 shrink-0" />
+              <div className="space-y-4">
+                <p className="text-[10px] font-bold text-gray-500 leading-relaxed uppercase">
+                  Para emitir legalmente, debe completar los campos <code className="text-orange-600">SUNAT_RUC</code>, <code className="text-orange-600">SUNAT_USERNAME</code> y <code className="text-orange-600">SUNAT_PASSWORD</code> en la configuración del servidor. 
+                </p>
+                <p className="text-[11px] font-black text-orange-700 dark:text-orange-400">
+                  Importante: El usuario SOL secundario debe tener permisos de emisión de comprobantes electrónicos asignados.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

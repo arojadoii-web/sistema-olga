@@ -7,6 +7,12 @@ export type ClientDocType = 'DNI' | 'RUC';
 export type ServiceType = 'Venta de Frutas' | 'Alquiler de Local';
 export type DocStatus = 'Emitido' | 'Pendiente';
 
+export interface IdentityApiConfig {
+  dniUrl: string;
+  rucUrl: string;
+  token: string;
+}
+
 export type TaskType = 'CREAR BOLETAS' | 'CREAR FACTURAS' | 'PAGOS VENCIDOS' | 'TAREA ADMINISTRATIVA';
 
 export interface OperationalTask {
@@ -16,7 +22,7 @@ export interface OperationalTask {
   description?: string;
   status: 'pendiente' | 'realizada';
   frequency?: 'unico' | 'constante';
-  completedDates?: string[]; // Almacena fechas YYYY-MM-DD donde se completó (para constantes)
+  completedDates?: string[];
 }
 
 export interface SystemUser {
@@ -88,6 +94,7 @@ export interface Sale {
   saleStatus: SaleStatus;
   items: SaleItem[];
   total: number;
+  sunatStatus?: 'Enviado' | 'Error' | 'Pendiente';
 }
 
 export interface PurchaseItem extends SaleItem {
@@ -111,6 +118,7 @@ export interface AppState {
   theme: 'light' | 'dark';
   currency: Currency;
   exchangeRate: number;
+  identityApi: IdentityApiConfig;
   user: SystemUser | null;
   users: SystemUser[];
   products: Product[];
