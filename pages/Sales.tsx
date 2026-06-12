@@ -944,7 +944,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
   const displayDocType = currentClient ? currentClient.docType : sale.clientDocType;
   const displayDocNumber = currentClient ? currentClient.docNumber : sale.clientDocNumber;
 
-  const [activeTab, setActiveTab] = useState<'info' | 'comprobante'>('comprobante');
+  const [activeTab, setActiveTab] = useState<'info' | 'comprobante'>('info');
   const [comprobanteFormat, setComprobanteFormat] = useState<'ticket' | 'a4'>('ticket');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [companyInfo, setCompanyInfo] = useState({
@@ -1386,20 +1386,20 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
         {/* Tab Selection */}
         <div className="px-8 pt-4 border-b border-gray-100 dark:border-gray-700 flex gap-4 bg-gray-50/20">
           <button 
-            onClick={() => setActiveTab('comprobante')} 
-            className={`px-6 py-4 font-black text-xs uppercase tracking-wider border-b-4 transition-all ${
-              activeTab === 'comprobante' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-400 hover:text-gray-600'
-            }`}
-          >
-            Voucher / Impresión SUNAT
-          </button>
-          <button 
             onClick={() => setActiveTab('info')} 
             className={`px-6 py-4 font-black text-xs uppercase tracking-wider border-b-4 transition-all ${
               activeTab === 'info' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}
           >
             Información de Auditoría
+          </button>
+          <button 
+            onClick={() => setActiveTab('comprobante')} 
+            className={`px-6 py-4 font-black text-xs uppercase tracking-wider border-b-4 transition-all ${
+              activeTab === 'comprobante' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Voucher / Impresión SUNAT
           </button>
         </div>
         
