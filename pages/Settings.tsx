@@ -78,34 +78,304 @@ const Settings: React.FC = () => {
     setIsExporting(true);
     try {
       const wb = XLSX.utils.book_new();
+
+      const formatDate = (dateStr?: string) => {
+        if (!dateStr) return { formatted: '', year: '', month: '' };
+        try {
+          // If already format DD/MM/YYYY, return as is
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            const parts = dateStr.split('/');
+            const year = parts[2];
+            const monthNum = parts[1];
+            const monthNames = [
+              "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ];
+            const monthName = monthNames[parseInt(monthNum, 10) - 1] || monthNum;
+            return { formatted: dateStr, year, month: monthName };
+          }
+
+          const dateObj = new Date(dateStr);
+          if (isNaN(dateObj.getTime())) return { formatted: dateStr, year: '', month: '' };
+          
+          // Match standard YYYY-MM-DD
+          const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (match) {
+            const year = match[1];
+            const monthNum = match[2];
+            const day = match[3];
+            const monthNames = [
+              "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ];
+            const monthName = monthNames[parseInt(monthNum, 10) - 1] || monthNum;
+            return {
+              formatted: `${day}/${monthNum}/${year}`,
+              year: year,
+              month: monthName
+            };
+          }
+
+          const d = String(dateObj.getDate()).padStart(2, '0');
+          const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const y = String(dateObj.getFullYear());
+          const monthNames = [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+          ];
+          const monthName = monthNames[dateObj.getMonth()] || m;
+          return {
+            formatted: `${d}/${m}/${y}`,
+            year: y,
+            month: monthName
+          };
+        } catch {
+          return { formatted: dateStr, year: '', month: '' };
+        }
+      };
+
+      const formatItems = (items: any[]) => {
+        if (!items || items.length === 0) return '';
+        return items.map((it: any) => `${it.quantity} ${it.unit || 'Kilos'} x ${it.productName || 'Producto'} (P.U. S/ ${it.unitPrice || 0} - Total S/ ${it.total || 0})`).join(' | ');
+      };
+
+      const mapProducts = (products: any[]) => {
+        return products.map(p => {
+          const dateInfo = formatDate(p.lastUpdate);
+          return {
+            'ID': p.id || '',
+            'Nombre': p.name || '',
+            'Categoría': p.category || '',
+            'Unidad de Medida': p.unit || '',
+            'Precio': p.price || 0,
+            'Stock': p.stock || 0,
+            'Activo': p.active ? 'Sí' : 'No',
+            'Última Actualización': dateInfo.formatted,
+            'Año Actualización': dateInfo.year,
+            'Mes Actualización': dateInfo.month
+          };
+        });
+      };
+
+      const mapClients = (clients: any[]) => {
+        return clients.map(c => ({
+          'ID': c.id || '',
+          'Nombre / Razón Social': c.name || '',
+          'Tipo Documento': c.docType || '',
+          'Número Documento': c.docNumber || '',
+          'Contacto / Teléfono': c.contact || '',
+          'Dirección': c.address || '',
+          'Activo': c.active ? 'Sí' : 'No'
+        }));
+      };
+
+      const mapSuppliers = (suppliers: any[]) => {
+        return suppliers.map(s => ({
+          'ID': s.id || '',
+          'Nombre / Razón Social': s.name || '',
+          'RUC': s.ruc || '',
+          'Contacto': s.contact || '',
+          'Correo Electrónico': s.email || '',
+          'Dirección': s.address || '',
+          'Activo': s.active ? 'Sí' : 'No'
+        }));
+      };
+
+      const mapSales = (sales: any[]) => {
+        const rows: any[] = [];
+        sales.forEach(s => {
+          const dateInfo = formatDate(s.date);
+          const items = s.items || [];
+          if (items.length === 0) {
+            rows.push({
+              'ID': s.id || '',
+              'Fecha': dateInfo.formatted,
+              'Año': dateInfo.year,
+              'Mes': dateInfo.month,
+              'Tipo de Comprobante': s.documentType || '',
+              'Nro Comprobante': s.documentNumber || '',
+              'Cliente': s.clientName || '',
+              'Tipo Doc. Cliente': s.clientDocType || '',
+              'Nro Doc. Cliente': s.clientDocNumber || '',
+              'Servicio / Concepto': s.service || '',
+              'Guía de Remisión': s.guideNumber || '',
+              'Producto': '',
+              'Cant.': '',
+              'P. Unit': '',
+              'Subtotal': '',
+              'Importe Total de Venta': `S/ ${(Number(s.total) || 0).toFixed(2)}`,
+              'Estado SUNAT': s.docStatus || '',
+              'Estado Venta': s.saleStatus || '',
+              'Estado Envío': s.sunatStatus || 'Pendiente'
+            });
+          } else {
+            items.forEach((it: any) => {
+              rows.push({
+                'ID': s.id || '',
+                'Fecha': dateInfo.formatted,
+                'Año': dateInfo.year,
+                'Mes': dateInfo.month,
+                'Tipo de Comprobante': s.documentType || '',
+                'Nro Comprobante': s.documentNumber || '',
+                'Cliente': s.clientName || '',
+                'Tipo Doc. Cliente': s.clientDocType || '',
+                'Nro Doc. Cliente': s.clientDocNumber || '',
+                'Servicio / Concepto': s.service || '',
+                'Guía de Remisión': s.guideNumber || '',
+                'Producto': it.productName || '',
+                'Cant.': Number(it.quantity) || 0,
+                'P. Unit': `S/ ${(Number(it.unitPrice) || 0).toFixed(2)}`,
+                'Subtotal': `S/ ${(Number(it.total) || 0).toFixed(2)}`,
+                'Importe Total de Venta': `S/ ${(Number(s.total) || 0).toFixed(2)}`,
+                'Estado SUNAT': s.docStatus || '',
+                'Estado Venta': s.saleStatus || '',
+                'Estado Envío': s.sunatStatus || 'Pendiente'
+              });
+            });
+          }
+        });
+        return rows;
+      };
+
+      const mapPurchases = (purchases: any[]) => {
+        const rows: any[] = [];
+        purchases.forEach(p => {
+          const dateInfo = formatDate(p.date);
+          const items = p.items || [];
+          if (items.length === 0) {
+            rows.push({
+              'ID': p.id || '',
+              'Fecha': dateInfo.formatted,
+              'Año': dateInfo.year,
+              'Mes': dateInfo.month,
+              'Proveedor': p.supplierName || '',
+              'Nro Comprobante': p.documentNumber || '',
+              'Producto': '',
+              'Cant.': '',
+              'P. Unit': '',
+              'Subtotal': '',
+              'Importe Total Compra': `S/ ${(Number(p.total) || 0).toFixed(2)}`,
+              'Estado': p.status || ''
+            });
+          } else {
+            items.forEach((it: any) => {
+              rows.push({
+                'ID': p.id || '',
+                'Fecha': dateInfo.formatted,
+                'Año': dateInfo.year,
+                'Mes': dateInfo.month,
+                'Proveedor': p.supplierName || '',
+                'Nro Comprobante': p.documentNumber || '',
+                'Producto': it.productName || '',
+                'Cant.': Number(it.quantity) || 0,
+                'P. Unit': `S/ ${(Number(it.unitPrice) || 0).toFixed(2)}`,
+                'Subtotal': `S/ ${(Number(it.total) || 0).toFixed(2)}`,
+                'Importe Total Compra': `S/ ${(Number(p.total) || 0).toFixed(2)}`,
+                'Estado': p.status || ''
+              });
+            });
+          }
+        });
+        return rows;
+      };
+
+      const mapUsers = (users: any[]) => {
+        return users.map(u => ({
+          'ID': u.id || '',
+          'Nombre Completo': u.name || '',
+          'DNI': u.dni || '',
+          'Teléfono': u.phone || '',
+          'Funciones': u.functions || '',
+          'Usuario': u.username || '',
+          'Rol': u.role || '',
+          'Activo': u.active ? 'Sí' : 'No'
+        }));
+      };
+
+      const mapTasks = (tasks: any[]) => {
+        return tasks.map(t => {
+          const dateInfo = formatDate(t.date);
+          return {
+            'ID': t.id || '',
+            'Fecha': dateInfo.formatted,
+            'Año': dateInfo.year,
+            'Mes': dateInfo.month,
+            'Tipo de Tarea': t.type || '',
+            'Descripción': t.description || '',
+            'Estado': t.status === 'realizada' ? 'Realizada' : 'Pendiente',
+            'Frecuencia': t.frequency === 'constante' ? 'Constante' : 'Único'
+          };
+        });
+      };
       
       // EXPORTACIÓN DE TODAS LAS BASES DE DATOS DEL SISTEMA
       const datasets = [
-        { name: 'Productos', data: state.products },
-        { name: 'Clientes', data: state.clients },
-        { name: 'Proveedores', data: state.suppliers },
-        { name: 'Ventas', data: state.sales },
-        { name: 'Compras', data: state.purchases },
-        { name: 'Usuarios', data: state.users },
-        { name: 'Tareas', data: state.tasks }
+        { name: 'Productos', rawData: state.products, mapFn: mapProducts },
+        { name: 'Clientes', rawData: state.clients, mapFn: mapClients },
+        { name: 'Proveedores', rawData: state.suppliers, mapFn: mapSuppliers },
+        { name: 'Ventas', rawData: state.sales, mapFn: mapSales },
+        { name: 'Compras', rawData: state.purchases, mapFn: mapPurchases },
+        { name: 'Usuarios', rawData: state.users, mapFn: mapUsers },
+        { name: 'Tareas', rawData: state.tasks, mapFn: mapTasks }
       ];
 
       datasets.forEach(set => {
+        let mappedData: any[] = [];
+        if (set.rawData && set.rawData.length > 0) {
+          mappedData = set.mapFn(set.rawData);
+        } else {
+          // If no data, render headers using empty object
+          const emptyMapped = set.mapFn([{}]);
+          if (emptyMapped.length > 0) {
+            const emptyObj: any = { ...emptyMapped[0] };
+            Object.keys(emptyObj).forEach(k => { emptyObj[k] = ''; });
+            mappedData = [emptyObj];
+          } else {
+            mappedData = [{}];
+          }
+        }
+
         // Limpieza de datos para evitar el error de longitud de celda en Excel (32,767 caracteres)
         // Esto afecta principalmente a las fotos de perfil en base64
-        const sanitizedData = (set.data && set.data.length > 0) 
-          ? set.data.map((row: any) => {
-              const newRow = { ...row };
-              Object.keys(newRow).forEach(key => {
-                if (typeof newRow[key] === 'string' && newRow[key].length > 32000) {
-                  newRow[key] = "[IMAGEN O TEXTO DEMASIADO LARGO PARA EXCEL]";
-                }
-              });
-              return newRow;
-            })
-          : [{}];
+        const sanitizedData = mappedData.map((row: any) => {
+          const newRow: any = { ...row };
+          Object.keys(newRow).forEach(key => {
+            if (typeof newRow[key] === 'string' && newRow[key].length > 32000) {
+              newRow[key] = "[IMAGEN O TEXTO DEMASIADO LARGO PARA EXCEL]";
+            }
+          });
+          return newRow;
+        });
 
         const ws = XLSX.utils.json_to_sheet(sanitizedData);
+
+        // Styling headers using xlsx-js-style format
+        if (ws['!ref']) {
+          const range = XLSX.utils.decode_range(ws['!ref']);
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+            const cell = ws[cellAddress];
+            if (cell) {
+              cell.s = {
+                fill: {
+                  patternType: 'solid',
+                  fgColor: { rgb: '1B5628' } // Primary green: #1B5628
+                },
+                font: {
+                  bold: true,
+                  color: { rgb: 'FFFFFF' },
+                  name: 'Segoe UI',
+                  size: 11
+                },
+                alignment: {
+                  horizontal: 'center',
+                  vertical: 'center'
+                }
+              };
+            }
+          }
+        }
+
         XLSX.utils.book_append_sheet(wb, ws, set.name);
       });
 
