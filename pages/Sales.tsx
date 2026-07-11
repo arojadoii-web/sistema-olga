@@ -392,26 +392,53 @@ const NewSaleForm: React.FC<{
   const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
 
   const suggestDocumentNumber = (type: DocumentType): string => {
-    const salesOfType = (state?.sales || []).filter(s => s.documentType === type && s.saleStatus !== 'Anulado');
-    const prefix = type === 'Boleta' ? 'B101' : 'F101';
+    // We must NOT filter out 'Anulado' sales because even cancelled bills consumer a serial slot in SUNAT series
+    const salesOfType = (state?.sales || []).filter(s => s.documentType === type);
+    const prefix = type === 'Boleta' ? 'EB01' : 'E001';
     
     if (salesOfType.length === 0) {
       return `${prefix}-00000001`;
     }
     
     let maxNumber = 0;
+    let customPrefix = prefix;
+    let paddingLength = 8;
+    let foundMatch = false;
+
+    // Scan for any sales that match the target series E001/EB01
     salesOfType.forEach(s => {
       const parts = s.documentNumber.split('-');
       if (parts.length === 2) {
-        const num = parseInt(parts[1], 10);
-        if (!isNaN(num) && num > maxNumber) {
-          maxNumber = num;
+        const pfx = parts[0].toUpperCase();
+        if (pfx === prefix) {
+          const num = parseInt(parts[1], 10);
+          if (!isNaN(num) && num > maxNumber) {
+            maxNumber = num;
+            customPrefix = parts[0];
+            paddingLength = parts[1].length;
+            foundMatch = true;
+          }
         }
       }
     });
+
+    // Fallback: scan any other series for this type (e.g. legacy B101/F101) to keep incrementing correctly, but with the new prefix
+    if (!foundMatch) {
+      salesOfType.forEach(s => {
+        const parts = s.documentNumber.split('-');
+        if (parts.length === 2) {
+          const num = parseInt(parts[1], 10);
+          if (!isNaN(num) && num > maxNumber) {
+            maxNumber = num;
+            paddingLength = parts[1].length;
+          }
+        }
+      });
+      customPrefix = prefix;
+    }
     
     const nextNumber = maxNumber + 1;
-    return `${prefix}-${String(nextNumber).padStart(8, '0')}`;
+    return `${customPrefix}-${String(nextNumber).padStart(paddingLength, '0')}`;
   };
 
   const [formData, setFormData] = useState({
@@ -420,20 +447,27 @@ const NewSaleForm: React.FC<{
     clientId: initialData?.clientId || '',
     service: initialData?.service || 'Venta de Frutas' as ServiceType,
     documentType: initialData?.documentType || 'Boleta' as DocumentType,
-    documentNumber: initialData?.documentNumber || '',
+    documentNumber: initialData?.documentNumber || suggestDocumentNumber(initialData?.documentType || 'Boleta'),
     docStatus: initialData?.docStatus || 'Emitido' as DocStatus,
     saleStatus: initialData?.saleStatus || 'Pendiente' as SaleStatus,
   });
 
-  // Effect to populate dynamic suggested increment on mount/edit if empty
+  // Effect to populate dynamic suggested increment on mount/edit or when state.sales changes
   useEffect(() => {
-    if (!initialData && !formData.documentNumber) {
-      setFormData(prev => ({
-        ...prev,
-        documentNumber: suggestDocumentNumber(prev.documentType)
-      }));
+    if (!initialData) {
+      setFormData(prev => {
+        const nextSug = suggestDocumentNumber(prev.documentType);
+        // Only update if empty or if it is currently holding an auto-suggested pattern
+        if (!prev.documentNumber || /^([BF]101-\d{8}|EB01-\d+|E001-\d+)$/.test(prev.documentNumber)) {
+          return {
+            ...prev,
+            documentNumber: nextSug
+          };
+        }
+        return prev;
+      });
     }
-  }, [initialData]);
+  }, [initialData, state?.sales]);
 
   const handleDocumentTypeChange = (type: DocumentType) => {
     setFormData(prev => ({
@@ -507,7 +541,12 @@ const NewSaleForm: React.FC<{
         clientDocType: selectedClient?.docType || 'DNI',
         clientDocNumber: selectedClient?.docNumber || '',
         contact: selectedClient?.contact || '',
-        items,
+        items: items.map(it => ({
+          ...it,
+          quantity: Number(it.quantity) || 0,
+          unitPrice: Number(it.unitPrice) || 0,
+          total: Number(it.total) || 0
+        })),
         total
       };
       await onSave(sale);
@@ -606,7 +645,7 @@ const NewSaleForm: React.FC<{
               value={formData.documentNumber} 
               onChange={e => setFormData({...formData, documentNumber: e.target.value})} 
               className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs uppercase" 
-              placeholder="F101-00000001" 
+              placeholder={formData.documentType === 'Factura' ? "E001-00001260" : "EB01-00001463"} 
             />
             {!initialData && (
               <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary-100 text-primary-700 text-[8px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
@@ -697,11 +736,33 @@ const NewSaleForm: React.FC<{
                 <div className="grid grid-cols-3 md:col-span-7 gap-3">
                   <div className="col-span-1">
                     <label className="block text-[9px] font-black text-gray-400 uppercase mb-2 ml-1 tracking-widest">Cant.</label>
-                    <input type="number" step="0.01" value={item.quantity} onChange={e => updateItem(i, 'quantity', Number(e.target.value))} className="w-full px-3 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm font-black [appearance:textfield]" />
+                    <input 
+                      type="text" 
+                      inputMode="decimal" 
+                      value={item.quantity} 
+                      onChange={e => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                          updateItem(i, 'quantity', val);
+                        }
+                      }} 
+                      className="w-full px-3 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm font-black [appearance:textfield]" 
+                    />
                   </div>
                   <div className="col-span-1">
                     <label className="block text-[9px] font-black text-gray-400 uppercase mb-2 ml-1 tracking-widest">P. Unit</label>
-                    <input type="number" step="0.01" value={item.unitPrice} onChange={e => updateItem(i, 'unitPrice', Number(e.target.value))} className="w-full px-3 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm font-black text-primary-600 [appearance:textfield]" />
+                    <input 
+                      type="text" 
+                      inputMode="decimal" 
+                      value={item.unitPrice} 
+                      onChange={e => {
+                        const val = e.target.value.replace(',', '.');
+                        if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                          updateItem(i, 'unitPrice', val);
+                        }
+                      }} 
+                      className="w-full px-3 py-3 rounded-xl bg-white dark:bg-gray-800 text-sm font-black text-primary-600 [appearance:textfield]" 
+                    />
                   </div>
                   <div className="col-span-1 text-right flex flex-col justify-end pb-3">
                     <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">Subtotal</span>
@@ -979,7 +1040,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
 
   useEffect(() => {
     const docParts = sale.documentNumber.split('-');
-    const serie = docParts[0] || 'F101';
+    const serie = docParts[0] || (sale.documentType === 'Factura' ? 'E001' : 'EB01');
     const correlativo = docParts[1] || '00000001';
     const tipoComp = sale.documentType === 'Factura' ? '01' : '03';
     const tipoDocCliente = displayDocType === 'RUC' ? '6' : '1';
@@ -1521,7 +1582,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
                 <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 text-amber-800 dark:text-amber-400 space-y-1">
                   <p className="font-black text-[9px] uppercase tracking-widest">Información Tributaria</p>
                   <p className="text-[10px] leading-relaxed">
-                    Las series recomendadas <b>{sale.documentType === 'Boleta' ? 'B101' : 'F101'}</b> están preparadas para emitirse directamente vía sistema web actual a SUNAT y son independientes de la facturación en el portal SOL para evitar conflictos de correlativos.
+                    Las series recomendadas <b>{sale.documentType === 'Boleta' ? 'EB01' : 'E001'}</b> están preparadas para emitirse directamente vía sistema web actual a SUNAT y son independientes de la facturación en el portal SOL para evitar conflictos de correlativos.
                   </p>
                 </div>
               </div>
