@@ -63,8 +63,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage }) 
           {/* Logo y Control */}
           <div className={`p-4 flex items-center shrink-0 ${isCollapsed ? 'justify-center' : 'justify-between'} mt-2`}>
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary-600/20 shrink-0">
-                FO
+              <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg shadow-primary-600/20 shrink-0 bg-primary-600 flex items-center justify-center text-white font-black text-xl">
+                <img 
+                  src="/icon-192.png" 
+                  alt="Frutería Olga" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
               </div>
               {!isCollapsed && (
                 <div className="animate-in fade-in slide-in-from-left-2 duration-300">

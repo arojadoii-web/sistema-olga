@@ -1,0 +1,145 @@
+const fs = require('fs');
+const path = require('path');
+const { Resvg } = require('@resvg/resvg-js');
+
+function createSvg(isMaskable = false) {
+  const scale = isMaskable ? 0.78 : 1.0;
+  const offset = isMaskable ? 56.32 : 0;
+
+  // Exact green from the user's image icon.png.png
+  const GREEN = '#417e2e';
+  const WHITE = '#ffffff';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Rounded squircle background for standard app icon, full bleed for maskable -->
+  ${isMaskable 
+    ? `<rect width="512" height="512" fill="${GREEN}" />`
+    : `<rect width="512" height="512" rx="112" ry="112" fill="${GREEN}" />`
+  }
+
+  <g transform="translate(${offset}, ${offset}) scale(${scale})">
+    <!-- 1. Apple Body (Solid White) -->
+    <path fill="${WHITE}" d="
+      M 254 196
+      C 216 195 168 200 138 226
+      C 112 250 104 282 106 322
+      C 110 366 130 404 172 422
+      C 194 430 224 430 242 420
+      C 248 416 254 416 260 420
+      C 278 430 306 430 328 422
+      C 342 416 351 409 354 402
+      C 355 399 350 395 342 392
+      C 333 388 327 382 325 372
+      C 323 364 327 358 333 354
+      C 327 349 325 343 326 336
+      C 327 332 331 330 333 328
+      C 329 325 326 321 326 316
+      C 326 311 329 307 333 305
+      C 325 302 319 297 321 290
+      C 323 281 328 275 332 271
+      C 334 265 333 257 328 248
+      C 346 242 372 233 405 216
+      C 390 195 354 185 312 187
+      C 285 189 266 195 254 196
+      Z
+    " />
+
+    <!-- 2. Crescent Cutout on Left Shoulder (Green slit matching user image) -->
+    <path fill="${GREEN}" d="
+      M 124 300
+      C 115 264 125 230 152 210
+      C 178 190 210 192 236 198
+      C 214 194 184 196 160 214
+      C 136 232 128 262 136 298
+      C 138 302 132 306 128 306
+      C 125 306 124 303 124 300
+      Z
+    " />
+
+    <!-- 3. Stem (Solid White) -->
+    <path fill="${WHITE}" d="
+      M 249 196
+      C 252 174 250 155 242 140
+      C 238 132 232 126 226 122
+      C 232 120 242 124 248 132
+      C 258 146 260 168 257 196
+      Z
+    " />
+
+    <!-- 4. Left Sprout / Small Leaf (Solid White) -->
+    <path fill="${WHITE}" d="
+      M 244 163
+      C 230 155 208 150 190 150
+      C 185 150 188 154 194 158
+      C 212 168 232 178 245 194
+      C 246 182 246 172 244 163
+      Z
+    " />
+
+    <!-- 5. Right Leaf (Solid White with Green Central Vein) -->
+    <path fill="${WHITE}" d="
+      M 264 148
+      C 278 120 310 90 386 78
+      C 362 108 330 134 268 152
+      C 264 152 262 150 264 148
+      Z
+    " />
+    <!-- Leaf Vein Slit (Green) -->
+    <path fill="${GREEN}" d="
+      M 276 142
+      C 308 126 342 108 376 83
+      C 342 104 310 122 278 140
+      C 274 142 274 144 276 142
+      Z
+    " stroke="${GREEN}" stroke-width="2" stroke-linecap="round" />
+
+    <!-- 6. Bottom Calyx Fragment (Solid White) -->
+    <path fill="${WHITE}" d="
+      M 248 424
+      C 255 422 265 422 272 424
+      C 267 430 253 430 248 424
+      Z
+    " />
+  </g>
+</svg>`;
+}
+
+async function run() {
+  const publicDir = path.join(__dirname, '../public');
+
+  // Write SVG
+  fs.writeFileSync(path.join(publicDir, 'favicon.svg'), createSvg(false));
+  console.log('favicon.svg written');
+
+  const sizes = [
+    { name: 'favicon-16x16.png', size: 16, maskable: false },
+    { name: 'favicon-32x32.png', size: 32, maskable: false },
+    { name: 'apple-touch-icon.png', size: 180, maskable: false },
+    { name: 'icon-192.png', size: 192, maskable: false },
+    { name: 'icon-512.png', size: 512, maskable: false },
+    { name: 'icon-maskable-512.png', size: 512, maskable: true },
+  ];
+
+  for (const { name, size, maskable } of sizes) {
+    const svg = createSvg(maskable);
+    const resvg = new Resvg(svg, {
+      fitTo: { mode: 'width', value: size },
+    });
+    const pngBuffer = resvg.render().asPng();
+    fs.writeFileSync(path.join(publicDir, name), pngBuffer);
+    console.log(`Generated ${name} (${size}x${size})`);
+  }
+
+  // Favicon.ico
+  const p32 = fs.readFileSync(path.join(publicDir, 'favicon-32x32.png'));
+  const icoHeader = Buffer.from([
+    0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+    32, 32, 0, 0, 1, 0, 32, 0,
+    p32.length & 0xff, (p32.length >> 8) & 0xff, (p32.length >> 16) & 0xff, (p32.length >> 24) & 0xff,
+    22, 0, 0, 0,
+  ]);
+  fs.writeFileSync(path.join(publicDir, 'favicon.ico'), Buffer.concat([icoHeader, p32]));
+  console.log('favicon.ico written');
+}
+
+run().catch(console.error);

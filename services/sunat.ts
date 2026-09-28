@@ -10,7 +10,7 @@ import dns from 'dns';
 
 // Persistent cache for resolved DNS IPs to prevent extra requests
 const dnsCache: Record<string, string> = {
-  'e-beta.sunat.gob.pe': '200.41.15.49',
+  'e-beta.sunat.gob.pe': '161.132.21.49',
   'e-facturacion.sunat.gob.pe': '190.108.97.241',
   'e-comprobantes.sunat.gob.pe': '190.108.97.241'
 };
@@ -48,8 +48,8 @@ async function resolveDoh(hostname: string): Promise<string> {
   // Robust Hardcoded Fallback Public IPs of SUNAT Servers in Peru
   console.log("SUNAT DNS: Falling back to static IP mapping");
   if (hostname.includes('e-beta.sunat.gob.pe')) {
-    dnsCache[hostname] = '200.41.15.49';
-    return '200.41.15.49';
+    dnsCache[hostname] = '161.132.21.49';
+    return '161.132.21.49';
   } else if (hostname.includes('e-comprobantes.sunat.gob.pe')) {
     dnsCache[hostname] = '190.108.97.241';
     return '190.108.97.241';
@@ -317,7 +317,7 @@ export class SunatService {
         // Extremely robust fallback mechanism to map sunat hostnames to real IPs
         if (!ip || ip === "undefined" || typeof ip !== "string" || !/^[0-9.]+$/.test(ip)) {
           if (hostname.includes('e-beta.sunat.gob.pe')) {
-            ip = '200.41.15.49';
+            ip = '161.132.21.49';
           } else if (hostname.includes('e-comprobantes.sunat.gob.pe') || hostname.includes('e-facturacion.sunat.gob.pe')) {
             ip = '190.108.97.241';
           } else {

@@ -47,8 +47,15 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row max-w-5xl w-full border border-primary-200">
           <div className="md:w-1/2 bg-primary-600 p-16 text-white flex flex-col justify-center items-center text-center">
-            <div className="w-28 h-28 bg-white/20 rounded-[2.5rem] flex items-center justify-center mb-8 backdrop-blur-md border border-white/20 shadow-xl">
-              <span className="text-5xl font-black">FO</span>
+            <div className="w-28 h-28 bg-white/20 rounded-[2.5rem] flex items-center justify-center mb-8 backdrop-blur-md border border-white/20 shadow-xl overflow-hidden p-2">
+              <img 
+                src="/icon-512.png" 
+                alt="Frutería Olga" 
+                className="w-full h-full object-cover rounded-[2rem]"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
             <h1 className="text-5xl font-black mb-4 tracking-tighter">Frutería Olga</h1>
             <p className="text-primary-100 text-xl font-medium opacity-90">Gestión Administrativa Local & Cloud</p>
