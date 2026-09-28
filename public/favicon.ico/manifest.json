@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Frutería Olga - Sistema Administrativo",
   "short_name": "Sistema Olga",
-  "description": "Sistema administrativo y punto de venta para Frutería Olga",
+  "description": "Sistema administrativo y punto de venta para Frutería Olga en Huánuco, Perú.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,6 +10,12 @@
   "background_color": "#06140B",
   "theme_color": "#417e2e",
   "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
@@ -26,7 +32,13 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
