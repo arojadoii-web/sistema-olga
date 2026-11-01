@@ -506,15 +506,44 @@ const NewSaleForm: React.FC<{
 
   const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
 
-  const suggestDocumentNumber = (type: DocumentType): string => {
-    // We must NOT filter out 'Anulado' sales because even cancelled bills consume a serial slot in SUNAT series
-    const salesOfType = (state?.sales || []).filter(s => s.documentType === type);
-    // SUNAT SEE del Contribuyente standard series: B001 for Boleta (03), F001 for Factura (01)
-    const prefix = type === 'Boleta' ? 'B001' : 'F001';
+const suggestDocumentNumber = (type: DocumentType): string => {
+    // Busca las ventas del tipo correspondiente
+    const salesOfType = (state?.sales || []).filter(s => s && s.documentType === type && s.documentNumber);
+    
+    // Prefijos oficiales del negocio (EB01 para Boleta, E001 para Factura)
+    const defaultPrefix = type === 'Boleta' ? 'EB01' : 'E001';
     
     if (salesOfType.length === 0) {
-      return `${prefix}-00000001`;
+      return `${defaultPrefix}-0001`;
     }
+    
+    let maxNumber = 0;
+    let detectedPrefix = defaultPrefix;
+    let detectedPadding = 0;
+
+    // Detecta el correlativo más alto respetando estrictamente el prefijo original del negocio (ej: EB01)
+    salesOfType.forEach(s => {
+      const parts = String(s.documentNumber || '').trim().split('-');
+      if (parts.length >= 2) {
+        const pfx = parts.slice(0, -1).join('-');
+        const rawNumStr = parts[parts.length - 1];
+        const num = parseInt(rawNumStr, 10);
+        if (!isNaN(num) && num > maxNumber) {
+          maxNumber = num;
+          detectedPrefix = pfx;
+          detectedPadding = rawNumStr.length;
+        }
+      }
+    });
+
+    const nextNumber = maxNumber + 1;
+    // Mantiene exactamente el formato del usuario (ej: de 1605 pasa a 1606) sin forzar 8 ceros
+    const formattedNum = detectedPadding > 0 
+      ? String(nextNumber).padStart(detectedPadding, '0') 
+      : String(nextNumber);
+
+    return `${detectedPrefix}-${formattedNum}`;
+  };
     
     let maxNumber = 0;
     let customPrefix = prefix;
