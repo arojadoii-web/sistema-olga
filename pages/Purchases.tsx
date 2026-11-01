@@ -45,12 +45,21 @@ const Purchases: React.FC = () => {
     currentPage * itemsPerPage
   );
 
+  const { totalActivePurchases, activePurchasesCount } = useMemo(() => {
+    const list = Array.isArray(state.purchases) ? state.purchases : [];
+    const active = list.filter(p => p && p.status !== 'Anulado');
+    const total = active.reduce((acc, p) => acc + (Number(p.total) || 0), 0);
+    return { totalActivePurchases: total, activePurchasesCount: active.length };
+  }, [state.purchases]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tighter">Abastecimiento</h2>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Registro de ingreso de mercadería</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            {activePurchasesCount} compras activas • Total acumulado: <span className="font-bold text-primary-600 dark:text-primary-400">{formatMoney(totalActivePurchases)}</span>
+          </p>
         </div>
         {view === 'list' ? (
           <button 

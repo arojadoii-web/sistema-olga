@@ -127,12 +127,16 @@ const Clients: React.FC = () => {
     setEditingClient(null);
   };
 
+  const clientsCount = (state.clients || []).length;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tighter">Clientes</h2>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Gestión de cartera de clientes</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            <span className="font-bold text-primary-600 dark:text-primary-400">{clientsCount}</span> clientes registrados
+          </p>
         </div>
         <button 
           onClick={() => setShowForm(true)}

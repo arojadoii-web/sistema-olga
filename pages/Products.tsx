@@ -69,12 +69,21 @@ const Products: React.FC = () => {
     }
   };
 
+  const { totalInventoryValue, activeProductsCount } = useMemo(() => {
+    const list = Array.isArray(state.products) ? state.products : [];
+    const active = list.filter(p => p && p.active !== false);
+    const value = active.reduce((acc, p) => acc + (Number(p.stock || 0) * Number(p.price || 0)), 0);
+    return { totalInventoryValue: value, activeProductsCount: active.length };
+  }, [state.products]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tighter">Registro de Productos</h2>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Catálogo e inventario sincronizado</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            {activeProductsCount} productos registrados • Total inventario: <span className="font-bold text-primary-600 dark:text-primary-400">{formatMoney(totalInventoryValue)}</span>
+          </p>
         </div>
         <button 
           onClick={() => { setEditingProduct(null); setShowForm(true); }}
