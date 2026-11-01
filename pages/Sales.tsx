@@ -11,12 +11,46 @@ import QRCode from 'qrcode';
 
 declare var jspdf: any;
 
+const displayDate = (dateStr: string) => {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+};
+
+// Extrae el número correlativo de un comprobante (ej: 'B001-00000045' -> 45)
+const extractDocCorrelative = (docNum?: string): { series: string; correlative: number } => {
+  if (!docNum || typeof docNum !== 'string') {
+    return { series: '', correlative: 0 };
+  }
+  const clean = docNum.trim();
+  const parts = clean.split('-');
+  if (parts.length >= 2) {
+    const series = parts.slice(0, -1).join('-');
+    const numPart = parseInt(parts[parts.length - 1], 10);
+    return {
+      series,
+      correlative: isNaN(numPart) ? 0 : numPart
+    };
+  }
+  const match = clean.match(/^(.*?)(\d+)$/);
+  if (match) {
+    return {
+      series: match[1],
+      correlative: parseInt(match[2], 10)
+    };
+  }
+  return { series: clean, correlative: 0 };
+};
+
 const Sales: React.FC = () => {
   const { state, addSale, cancelSale, updateSale } = useStore();
   const [view, setView] = useState<'list' | 'new'>('list');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const formatMoney = (val: number) => {
     const symbol = state.currency === 'PEN' ? 'S/' : '$';
@@ -29,12 +63,54 @@ const Sales: React.FC = () => {
     setView('new');
   };
 
+  // Calcula dinámicamente cantidad y monto total según la búsqueda (fecha, cliente o comprobante)
+  const filteredStats = useMemo(() => {
+    const list = Array.isArray(state.sales) ? state.sales : [];
+    const active = list.filter(s => s && s.saleStatus !== 'Anulado');
+    const term = searchTerm.toLowerCase().trim();
+
+    if (!term) {
+      const total = active.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+      return { count: active.length, total, isFiltered: false };
+    }
+
+    const matches = active.filter(s => {
+      const client = (state.clients || []).find(c => String(c.id) === String(s.clientId));
+      const cName = String(client ? client.name : s.clientName || '').toLowerCase();
+      const cDoc = String(client ? client.docNumber : s.clientDocNumber || '').toLowerCase();
+      const dNum = String(s.documentNumber || '').toLowerCase();
+      const dType = String(s.documentType || '').toLowerCase();
+      const rawDate = String(s.date || '').toLowerCase();
+      const formattedDate = displayDate(s.date).toLowerCase();
+
+      return cName.includes(term) ||
+             dNum.includes(term) ||
+             cDoc.includes(term) ||
+             dType.includes(term) ||
+             rawDate.includes(term) ||
+             formattedDate.includes(term);
+    });
+
+    const total = matches.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+    return { count: matches.length, total, isFiltered: true };
+  }, [state.sales, state.clients, searchTerm]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">Ventas</h2>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Facturación y registro de pedidos</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            {filteredStats.isFiltered ? (
+              <>
+                {filteredStats.count} registros filtrados • Total filtrado: <span className="font-bold text-primary-600 dark:text-primary-400">{formatMoney(filteredStats.total)}</span>
+              </>
+            ) : (
+              <>
+                {filteredStats.count} registros activos • Total acumulado: <span className="font-bold text-primary-600 dark:text-primary-400">{formatMoney(filteredStats.total)}</span>
+              </>
+            )}
+          </p>
         </div>
         {view === 'list' ? (
           <div className="grid grid-cols-2 sm:flex gap-3">
@@ -72,6 +148,8 @@ const Sales: React.FC = () => {
           sales={state.sales} 
           clients={state.clients}
           formatMoney={formatMoney} 
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
           onView={setSelectedSale} 
           onEdit={handleEdit}
           onCancel={cancelSale} 
@@ -116,53 +194,25 @@ const Sales: React.FC = () => {
   );
 };
 
-const displayDate = (dateStr: string) => {
-  if (!dateStr || typeof dateStr !== 'string') return '';
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  const [year, month, day] = parts;
-  return `${day}/${month}/${year}`;
-};
-
-// Extrae el número correlativo de un comprobante (ej: 'B001-00000045' -> 45)
-const extractDocCorrelative = (docNum?: string): { series: string; correlative: number } => {
-  if (!docNum || typeof docNum !== 'string') {
-    return { series: '', correlative: 0 };
-  }
-  const clean = docNum.trim();
-  const parts = clean.split('-');
-  if (parts.length >= 2) {
-    const series = parts.slice(0, -1).join('-');
-    const numPart = parseInt(parts[parts.length - 1], 10);
-    return {
-      series,
-      correlative: isNaN(numPart) ? 0 : numPart
-    };
-  }
-  const match = clean.match(/^(.*?)(\d+)$/);
-  if (match) {
-    return {
-      series: match[1],
-      correlative: parseInt(match[2], 10)
-    };
-  }
-  return { series: clean, correlative: 0 };
-};
-
 const SalesList: React.FC<{ 
   sales: Sale[], 
   clients: Client[], 
   formatMoney: (n: number) => string, 
+  searchTerm: string,
+  setSearchTerm: (term: string) => void,
   onView: (s: Sale) => void, 
   onEdit: (s: Sale) => void, 
   onCancel: (id: string) => Promise<void> 
-}> = ({ sales, clients, formatMoney, onView, onEdit, onCancel }) => {
+}> = ({ sales, clients, formatMoney, searchTerm, setSearchTerm, onView, onEdit, onCancel }) => {
   const { updateSale } = useStore();
-  const [searchTerm, setSearchTerm] = useState('');
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [isSending, setIsSending] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleSendToSunat = async (sale: Sale) => {
     setIsSending(sale.id);
@@ -232,13 +282,24 @@ const SalesList: React.FC<{
     });
   }, [sales]);
 
+  // Filtra por fecha (YYYY-MM-DD o DD/MM/YYYY), cliente, documento o tipo
   const filteredSales = sortedSales.filter(s => {
-    const term = String(searchTerm || '').toLowerCase();
+    const term = String(searchTerm || '').toLowerCase().trim();
+    if (!term) return true;
     const clientInfo = getClientInfo(s);
     const cName = String(clientInfo.name || '').toLowerCase();
     const dNum = String(s.documentNumber || '').toLowerCase();
     const cDoc = String(clientInfo.docNumber || '').toLowerCase();
-    return cName.includes(term) || dNum.includes(term) || cDoc.includes(term);
+    const dType = String(s.documentType || '').toLowerCase();
+    const rawDate = String(s.date || '').toLowerCase();
+    const formattedDate = displayDate(s.date).toLowerCase();
+
+    return cName.includes(term) || 
+           dNum.includes(term) || 
+           cDoc.includes(term) ||
+           dType.includes(term) ||
+           rawDate.includes(term) ||
+           formattedDate.includes(term);
   });
 
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
@@ -262,7 +323,7 @@ const SalesList: React.FC<{
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input 
             type="text" 
-            placeholder="Buscar por cliente, documento o factura..." 
+            placeholder="Buscar por fecha, cliente o comprobante..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-14 pr-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-primary-500 outline-none text-sm font-bold text-gray-900 dark:text-white transition-all"
@@ -446,9 +507,10 @@ const NewSaleForm: React.FC<{
   const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
 
   const suggestDocumentNumber = (type: DocumentType): string => {
-    // We must NOT filter out 'Anulado' sales because even cancelled bills consumer a serial slot in SUNAT series
+    // We must NOT filter out 'Anulado' sales because even cancelled bills consume a serial slot in SUNAT series
     const salesOfType = (state?.sales || []).filter(s => s.documentType === type);
-    const prefix = type === 'Boleta' ? 'EB01' : 'E001';
+    // SUNAT SEE del Contribuyente standard series: B001 for Boleta (03), F001 for Factura (01)
+    const prefix = type === 'Boleta' ? 'B001' : 'F001';
     
     if (salesOfType.length === 0) {
       return `${prefix}-00000001`;
@@ -459,24 +521,24 @@ const NewSaleForm: React.FC<{
     let paddingLength = 8;
     let foundMatch = false;
 
-    // Scan for any sales that match the target series E001/EB01
+    // Scan for any sales that match the target series B001/F001 (or legacy EB01/E001/B101/F101)
     salesOfType.forEach(s => {
       const parts = s.documentNumber.split('-');
       if (parts.length === 2) {
         const pfx = parts[0].toUpperCase();
-        if (pfx === prefix) {
+        if (pfx === prefix || (type === 'Boleta' && pfx === 'EB01') || (type === 'Factura' && pfx === 'E001')) {
           const num = parseInt(parts[1], 10);
           if (!isNaN(num) && num > maxNumber) {
             maxNumber = num;
-            customPrefix = parts[0];
-            paddingLength = parts[1].length;
+            customPrefix = prefix;
+            paddingLength = Math.max(8, parts[1].length);
             foundMatch = true;
           }
         }
       }
     });
 
-    // Fallback: scan any other series for this type (e.g. legacy B101/F101) to keep incrementing correctly, but with the new prefix
+    // Fallback: scan any other series for this type (e.g. legacy B101/F101) to keep incrementing correctly, but with the standard prefix
     if (!foundMatch) {
       salesOfType.forEach(s => {
         const parts = s.documentNumber.split('-');
@@ -484,7 +546,7 @@ const NewSaleForm: React.FC<{
           const num = parseInt(parts[1], 10);
           if (!isNaN(num) && num > maxNumber) {
             maxNumber = num;
-            paddingLength = parts[1].length;
+            paddingLength = Math.max(8, parts[1].length);
           }
         }
       });
@@ -492,7 +554,7 @@ const NewSaleForm: React.FC<{
     }
     
     const nextNumber = maxNumber + 1;
-    return `${customPrefix}-${String(nextNumber).padStart(paddingLength, '0')}`;
+    return `${customPrefix}-${String(nextNumber).padStart(8, '0')}`;
   };
 
   const [formData, setFormData] = useState({
@@ -512,7 +574,7 @@ const NewSaleForm: React.FC<{
       setFormData(prev => {
         const nextSug = suggestDocumentNumber(prev.documentType);
         // Only update if empty or if it is currently holding an auto-suggested pattern
-        if (!prev.documentNumber || /^([BF]101-\d{8}|EB01-\d+|E001-\d+)$/.test(prev.documentNumber)) {
+        if (!prev.documentNumber || /^([BF]101-\d{8}|[BF]001-\d+|EB01-\d+|E001-\d+)$/.test(prev.documentNumber)) {
           return {
             ...prev,
             documentNumber: nextSug
@@ -699,7 +761,7 @@ const NewSaleForm: React.FC<{
               value={formData.documentNumber} 
               onChange={e => setFormData({...formData, documentNumber: e.target.value})} 
               className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs uppercase" 
-              placeholder={formData.documentType === 'Factura' ? "E001-00001260" : "EB01-00001463"} 
+              placeholder={formData.documentType === 'Factura' ? "F001-00000001" : "B001-00000001"} 
             />
             {!initialData && (
               <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary-100 text-primary-700 text-[8px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
@@ -1094,8 +1156,8 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
 
   useEffect(() => {
     const docParts = sale.documentNumber.split('-');
-    const serie = docParts[0] || (sale.documentType === 'Factura' ? 'E001' : 'EB01');
-    const correlativo = docParts[1] || '00000001';
+    const serie = docParts[0] || (sale.documentType === 'Factura' ? 'F001' : 'B001');
+    const correlativo = (docParts[1] || '1').padStart(8, '0');
     const tipoComp = sale.documentType === 'Factura' ? '01' : '03';
     const tipoDocCliente = displayDocType === 'RUC' ? '6' : '1';
     
@@ -1636,7 +1698,7 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
                 <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 text-amber-800 dark:text-amber-400 space-y-1">
                   <p className="font-black text-[9px] uppercase tracking-widest">Información Tributaria</p>
                   <p className="text-[10px] leading-relaxed">
-                    Las series recomendadas <b>{sale.documentType === 'Boleta' ? 'EB01' : 'E001'}</b> están preparadas para emitirse directamente vía sistema web actual a SUNAT y son independientes de la facturación en el portal SOL para evitar conflictos de correlativos.
+                    Las series <b>{sale.documentType === 'Boleta' ? 'B001' : 'F001'}</b> cumplen con la normativa SUNAT UBL 2.1 (SEE del Contribuyente) para emisión electrónica directa mediante archivo ZIP y firma digital.
                   </p>
                 </div>
               </div>
