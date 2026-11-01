@@ -506,7 +506,7 @@ const NewSaleForm: React.FC<{
 
   const getTodayDate = () => new Date().toLocaleDateString('sv-SE');
 
-const suggestDocumentNumber = (type: DocumentType): string => {
+  const suggestDocumentNumber = (type: DocumentType): string => {
     // Busca las ventas del tipo correspondiente
     const salesOfType = (state?.sales || []).filter(s => s && s.documentType === type && s.documentNumber);
     
@@ -521,7 +521,7 @@ const suggestDocumentNumber = (type: DocumentType): string => {
     let detectedPrefix = defaultPrefix;
     let detectedPadding = 0;
 
-    // Detecta el correlativo más alto respetando estrictamente el prefijo original del negocio (ej: EB01)
+    // Detecta el correlativo más alto respetando estrictamente el prefijo original del usuario (ej: EB01)
     salesOfType.forEach(s => {
       const parts = String(s.documentNumber || '').trim().split('-');
       if (parts.length >= 2) {
@@ -543,47 +543,6 @@ const suggestDocumentNumber = (type: DocumentType): string => {
       : String(nextNumber);
 
     return `${detectedPrefix}-${formattedNum}`;
-  };
-    
-    let maxNumber = 0;
-    let customPrefix = prefix;
-    let paddingLength = 8;
-    let foundMatch = false;
-
-    // Scan for any sales that match the target series B001/F001 (or legacy EB01/E001/B101/F101)
-    salesOfType.forEach(s => {
-      const parts = s.documentNumber.split('-');
-      if (parts.length === 2) {
-        const pfx = parts[0].toUpperCase();
-        if (pfx === prefix || (type === 'Boleta' && pfx === 'EB01') || (type === 'Factura' && pfx === 'E001')) {
-          const num = parseInt(parts[1], 10);
-          if (!isNaN(num) && num > maxNumber) {
-            maxNumber = num;
-            customPrefix = prefix;
-            paddingLength = Math.max(8, parts[1].length);
-            foundMatch = true;
-          }
-        }
-      }
-    });
-
-    // Fallback: scan any other series for this type (e.g. legacy B101/F101) to keep incrementing correctly, but with the standard prefix
-    if (!foundMatch) {
-      salesOfType.forEach(s => {
-        const parts = s.documentNumber.split('-');
-        if (parts.length === 2) {
-          const num = parseInt(parts[1], 10);
-          if (!isNaN(num) && num > maxNumber) {
-            maxNumber = num;
-            paddingLength = Math.max(8, parts[1].length);
-          }
-        }
-      });
-      customPrefix = prefix;
-    }
-    
-    const nextNumber = maxNumber + 1;
-    return `${customPrefix}-${String(nextNumber).padStart(8, '0')}`;
   };
 
   const [formData, setFormData] = useState({
@@ -790,7 +749,7 @@ const suggestDocumentNumber = (type: DocumentType): string => {
               value={formData.documentNumber} 
               onChange={e => setFormData({...formData, documentNumber: e.target.value})} 
               className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white font-black text-xs uppercase" 
-              placeholder={formData.documentType === 'Factura' ? "F001-00000001" : "B001-00000001"} 
+              placeholder={formData.documentType === 'Factura' ? "E001-0001" : "EB01-0001"} 
             />
             {!initialData && (
               <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary-100 text-primary-700 text-[8px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
