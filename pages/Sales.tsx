@@ -124,6 +124,31 @@ const displayDate = (dateStr: string) => {
   return `${day}/${month}/${year}`;
 };
 
+// Extrae el número correlativo de un comprobante (ej: 'B001-00000045' -> 45)
+const extractDocCorrelative = (docNum?: string): { series: string; correlative: number } => {
+  if (!docNum || typeof docNum !== 'string') {
+    return { series: '', correlative: 0 };
+  }
+  const clean = docNum.trim();
+  const parts = clean.split('-');
+  if (parts.length >= 2) {
+    const series = parts.slice(0, -1).join('-');
+    const numPart = parseInt(parts[parts.length - 1], 10);
+    return {
+      series,
+      correlative: isNaN(numPart) ? 0 : numPart
+    };
+  }
+  const match = clean.match(/^(.*?)(\d+)$/);
+  if (match) {
+    return {
+      series: match[1],
+      correlative: parseInt(match[2], 10)
+    };
+  }
+  return { series: clean, correlative: 0 };
+};
+
 const SalesList: React.FC<{ 
   sales: Sale[], 
   clients: Client[], 
@@ -174,8 +199,37 @@ const SalesList: React.FC<{
     };
   };
 
+  // Ordenamiento estable con doble condición estricta:
+  // 1. Fecha más reciente primero (descendente)
+  // 2. Correlativo / numeración más reciente primero (descendente)
+  // Se respeta siempre aun cuando se edite la numeración o se anule el comprobante.
   const sortedSales = useMemo(() => {
-    return Array.isArray(sales) ? [...sales].sort((a, b) => String(b.date).localeCompare(String(a.date))) : [];
+    if (!Array.isArray(sales)) return [];
+    return [...sales].sort((a, b) => {
+      // Condición 1: Fecha más reciente arriba
+      const dateA = String(a.date || '');
+      const dateB = String(b.date || '');
+      const dateComp = dateB.localeCompare(dateA);
+      if (dateComp !== 0) return dateComp;
+
+      // Condición 2 (Misma fecha): Correlativo numérico mayor arriba
+      const infoA = extractDocCorrelative(a.documentNumber);
+      const infoB = extractDocCorrelative(b.documentNumber);
+      if (infoB.correlative !== infoA.correlative) {
+        return infoB.correlative - infoA.correlative;
+      }
+
+      // Desempate por serie alfanumérica
+      const docComp = String(b.documentNumber || '').localeCompare(
+        String(a.documentNumber || ''),
+        undefined,
+        { numeric: true }
+      );
+      if (docComp !== 0) return docComp;
+
+      // Desempate final determinista por ID
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
   }, [sales]);
 
   const filteredSales = sortedSales.filter(s => {
