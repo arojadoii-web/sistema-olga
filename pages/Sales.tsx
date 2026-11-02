@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { 
   Plus, Search, Eye, XCircle, Trash2, Printer, Edit2,
   PlusCircle, User, FileText, Calendar, Tag, CheckCircle2, Loader2,
-  ChevronLeft, ChevronRight, Download, Package, Phone
+  ChevronLeft, ChevronRight, Download, Package, Phone, MessageCircle
 } from 'lucide-react';
 import { Sale, SaleItem, Product, Client, DocumentType, SaleStatus, ServiceType, DocStatus } from '../types';
 import QRCode from 'qrcode';
@@ -63,18 +63,38 @@ const Sales: React.FC = () => {
     setView('new');
   };
 
-  // Calcula dinámicamente cantidad y monto total según la búsqueda (fecha, cliente o comprobante)
-  const filteredStats = useMemo(() => {
+  // Lista ordenada por fecha y correlativo
+  const sortedSales = useMemo(() => {
     const list = Array.isArray(state.sales) ? state.sales : [];
-    const active = list.filter(s => s && s.saleStatus !== 'Anulado');
+    return [...list].sort((a, b) => {
+      const dateA = String(a.date || '');
+      const dateB = String(b.date || '');
+      const dateComp = dateB.localeCompare(dateA);
+      if (dateComp !== 0) return dateComp;
+
+      const infoA = extractDocCorrelative(a.documentNumber);
+      const infoB = extractDocCorrelative(b.documentNumber);
+      if (infoB.correlative !== infoA.correlative) {
+        return infoB.correlative - infoA.correlative;
+      }
+
+      const docComp = String(b.documentNumber || '').localeCompare(
+        String(a.documentNumber || ''),
+        undefined,
+        { numeric: true }
+      );
+      if (docComp !== 0) return docComp;
+
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
+  }, [state.sales]);
+
+  // Lista filtrada en base al buscador
+  const filteredSales = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
+    if (!term) return sortedSales;
 
-    if (!term) {
-      const total = active.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
-      return { count: active.length, total, isFiltered: false };
-    }
-
-    const matches = active.filter(s => {
+    return sortedSales.filter(s => {
       const client = (state.clients || []).find(c => String(c.id) === String(s.clientId));
       const cName = String(client ? client.name : s.clientName || '').toLowerCase();
       const cDoc = String(client ? client.docNumber : s.clientDocNumber || '').toLowerCase();
@@ -90,10 +110,14 @@ const Sales: React.FC = () => {
              rawDate.includes(term) ||
              formattedDate.includes(term);
     });
+  }, [sortedSales, state.clients, searchTerm]);
 
-    const total = matches.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
-    return { count: matches.length, total, isFiltered: true };
-  }, [state.sales, state.clients, searchTerm]);
+  // Calcula dinámicamente cantidad y monto total según la búsqueda (fecha, cliente o comprobante)
+  const filteredStats = useMemo(() => {
+    const active = filteredSales.filter(s => s && s.saleStatus !== 'Anulado');
+    const total = active.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+    return { count: active.length, total, isFiltered: Boolean(searchTerm.trim()) };
+  }, [filteredSales, searchTerm]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -145,7 +169,7 @@ const Sales: React.FC = () => {
 
       {view === 'list' ? (
         <SalesList 
-          sales={state.sales} 
+          sales={filteredSales} 
           clients={state.clients}
           formatMoney={formatMoney} 
           searchTerm={searchTerm}
@@ -176,7 +200,9 @@ const Sales: React.FC = () => {
       {selectedSale && (
         <SaleDetailModal 
           sale={selectedSale} 
+          allSales={filteredSales}
           clients={state.clients}
+          onSelectSale={setSelectedSale}
           onClose={() => setSelectedSale(null)} 
           formatMoney={formatMoney} 
         />
@@ -1099,7 +1125,14 @@ const numToSpanishWords = (num: number): string => {
   return `SON: ${integerWords} CON ${centsStr}/100 SOLES`.toUpperCase();
 };
 
-const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => void, formatMoney: (n: number) => string }> = ({ sale, clients, onClose, formatMoney }) => {
+const SaleDetailModal: React.FC<{ 
+  sale: Sale, 
+  allSales?: Sale[],
+  clients: Client[], 
+  onSelectSale?: (s: Sale) => void,
+  onClose: () => void, 
+  formatMoney: (n: number) => string 
+}> = ({ sale, allSales = [], clients, onSelectSale, onClose, formatMoney }) => {
   const currentClient = (clients || []).find(c => 
     (sale.clientId && String(c.id) === String(sale.clientId)) || 
     (sale.clientDocNumber && c.docNumber === sale.clientDocNumber)
@@ -1108,6 +1141,89 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
   const displayName = currentClient ? currentClient.name : sale.clientName;
   const displayDocType = currentClient ? currentClient.docType : sale.clientDocType;
   const displayDocNumber = currentClient ? currentClient.docNumber : sale.clientDocNumber;
+
+  // Navegación entre comprobantes
+  const currentIndex = allSales.findIndex(s => s.id === sale.id);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < allSales.length - 1;
+
+  const handlePrev = () => {
+    if (hasPrev && onSelectSale) {
+      onSelectSale(allSales[currentIndex - 1]);
+    }
+  };
+
+  const handleNext = () => {
+    if (hasNext && onSelectSale) {
+      onSelectSale(allSales[currentIndex + 1]);
+    }
+  };
+
+  // Extrae todos los números de teléfono detectados en el contacto del cliente o de la venta
+  const detectedPhones = useMemo(() => {
+    const raw = String(displayContact || '').trim();
+    if (!raw) return [];
+    // Busca números de al menos 7 a 15 dígitos
+    const matches = raw.match(/\d[\d\s-]{5,14}\d/g) || [];
+    const cleaned = matches
+      .map(m => m.replace(/\D/g, ''))
+      .filter(m => m.length >= 7);
+    return Array.from(new Set(cleaned));
+  }, [displayContact]);
+
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  const [selectedPhone, setSelectedPhone] = useState<string>('');
+  const [whatsappMessage, setWhatsappMessage] = useState<string>('');
+
+  const defaultMessage = useMemo(() => {
+    const clientName = (displayName || 'VENTA DEL DIA').toUpperCase();
+    return `¡Hola ${clientName}! \n\n` +
+      `🍎 Le saluda Frutería Olga.\n\n` +
+      `Te enviamos tu COMPROBANTE DE COMPRA 🧾\n` +
+      `Confírme la recepción, por favor ✅👍\n\n` +
+      `GRACIAS por tu compra 🙌`;
+  }, [displayName]);
+
+  useEffect(() => {
+    if (showWhatsappModal) {
+      setWhatsappMessage(defaultMessage);
+      setSelectedPhone(detectedPhones[0] || (displayContact ? displayContact.replace(/\D/g, '') : ''));
+    }
+  }, [showWhatsappModal, defaultMessage, detectedPhones, displayContact]);
+
+  // Teclado: Flecha izquierda (anterior), Flecha derecha (siguiente), Escape (cerrar)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showWhatsappModal) return;
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowLeft' && hasPrev) {
+        handlePrev();
+      } else if (e.key === 'ArrowRight' && hasNext) {
+        handleNext();
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasPrev, hasNext, currentIndex, allSales, showWhatsappModal]);
+
+  const handleSendWhatsapp = () => {
+    let clean = selectedPhone.replace(/\D/g, '');
+    if (!clean) {
+      alert('Por favor ingrese o seleccione un número de teléfono válido.');
+      return;
+    }
+    // Si es un celular peruano de 9 dígitos que empieza con 9, agregar el prefijo de país 51
+    if (clean.length === 9 && clean.startsWith('9')) {
+      clean = '51' + clean;
+    }
+    // Endpoint oficial directo de WhatsApp para evitar corrupción de emojis en la redirección de wa.me
+    const url = `https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(url, '_blank');
+    setShowWhatsappModal(false);
+  };
 
   const [activeTab, setActiveTab] = useState<'info' | 'comprobante'>('info');
   const [comprobanteFormat, setComprobanteFormat] = useState<'ticket' | 'a4'>('ticket');
@@ -1533,7 +1649,37 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in zoom-in-95">
-      <div className="bg-white dark:bg-gray-800 w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/10 flex flex-col h-[90vh]">
+      {/* Flecha lateral flotante izquierda (Comprobante Anterior) */}
+      <button 
+        type="button"
+        onClick={handlePrev}
+        disabled={!hasPrev}
+        title={hasPrev ? `Comprobante anterior (${currentIndex} de ${allSales.length}) - [← Flecha Izquierda]` : 'Primer comprobante'}
+        className={`fixed left-2 sm:left-4 md:left-8 top-1/2 -translate-y-1/2 z-[110] p-3 sm:p-4 rounded-full bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-2xl border border-gray-200 dark:border-gray-700 transition-all ${
+          hasPrev 
+            ? 'hover:scale-110 active:scale-90 cursor-pointer text-primary-600 hover:bg-primary-50 dark:hover:bg-gray-700' 
+            : 'opacity-15 cursor-not-allowed pointer-events-none'
+        }`}
+      >
+        <ChevronLeft size={30} />
+      </button>
+
+      {/* Flecha lateral flotante derecha (Comprobante Siguiente) */}
+      <button 
+        type="button"
+        onClick={handleNext}
+        disabled={!hasNext}
+        title={hasNext ? `Comprobante siguiente (${currentIndex + 2} de ${allSales.length}) - [→ Flecha Derecha]` : 'Último comprobante'}
+        className={`fixed right-2 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 z-[110] p-3 sm:p-4 rounded-full bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-2xl border border-gray-200 dark:border-gray-700 transition-all ${
+          hasNext 
+            ? 'hover:scale-110 active:scale-90 cursor-pointer text-primary-600 hover:bg-primary-50 dark:hover:bg-gray-700' 
+            : 'opacity-15 cursor-not-allowed pointer-events-none'
+        }`}
+      >
+        <ChevronRight size={30} />
+      </button>
+
+      <div className="bg-white dark:bg-gray-800 w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/10 flex flex-col h-[90vh] relative">
         
         {/* Header Modal */}
         <div className="p-8 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/30">
@@ -1887,15 +2033,139 @@ const SaleDetailModal: React.FC<{ sale: Sale, clients: Client[], onClose: () => 
         </div>
         
         {/* Footer controls */}
-        <div className="p-8 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-          <button 
-            onClick={onClose} 
-            className="px-10 py-4 bg-white dark:bg-gray-850 hover:bg-gray-100 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-2xl font-black text-xs uppercase tracking-wider text-gray-500 active:scale-95 transition-all"
-          >
-            Cerrar Detalle
-          </button>
+        <div className="p-6 sm:p-8 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700 flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
+          <div className="text-xs font-bold text-gray-400">
+            {currentIndex >= 0 && allSales.length > 0 && (
+              <span>Comprobante <strong className="text-gray-700 dark:text-gray-200">{currentIndex + 1}</strong> de <strong className="text-gray-700 dark:text-gray-200">{allSales.length}</strong></span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button 
+              type="button"
+              onClick={() => setShowWhatsappModal(true)} 
+              title="Enviar comprobante por WhatsApp"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-green-600/20 active:scale-95 transition-all"
+            >
+              <MessageCircle size={18} />
+              <span>Enviar por WhatsApp</span>
+            </button>
+            <button 
+              type="button"
+              onClick={onClose} 
+              className="px-8 py-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-2xl font-black text-xs uppercase tracking-wider text-gray-500 dark:text-gray-300 active:scale-95 transition-all"
+            >
+              Cerrar Detalle
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Modal Envío por WhatsApp */}
+      {showWhatsappModal && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-6">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#25D366]/10 flex items-center justify-center text-[#25D366]">
+                  <MessageCircle size={22} />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Enviar por WhatsApp</h4>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{sale.documentType} {sale.documentNumber}</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowWhatsappModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-400 transition-all"
+              >
+                <XCircle size={22} />
+              </button>
+            </div>
+
+            {/* Selector de Teléfono */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-400">
+                Seleccionar o escribir número de teléfono:
+              </label>
+
+              {detectedPhones.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1 pb-1">
+                  {detectedPhones.map((phone, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedPhone(phone)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 ${
+                        selectedPhone.replace(/\D/g, '') === phone
+                          ? 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-500 shadow-sm'
+                          : 'bg-gray-50 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Phone size={12} />
+                      <span>{phone}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="relative">
+                <input
+                  type="text"
+                  value={selectedPhone}
+                  onChange={(e) => setSelectedPhone(e.target.value)}
+                  placeholder="Número de WhatsApp (ej: 971641585)"
+                  className="w-full px-5 py-3.5 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-green-500 text-sm font-bold text-gray-900 dark:text-white transition-all"
+                />
+              </div>
+              <p className="text-[10px] text-gray-400">
+                * Si es un número peruano de 9 dígitos, se le agregará automáticamente el prefijo +51.
+              </p>
+            </div>
+
+            {/* Mensaje Editable */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-400">
+                  Mensaje a enviar (puedes editarlo):
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setWhatsappMessage(defaultMessage)}
+                  className="text-[10px] font-bold text-primary-600 hover:underline"
+                >
+                  Restablecer
+                </button>
+              </div>
+              <textarea
+                rows={7}
+                value={whatsappMessage}
+                onChange={(e) => setWhatsappMessage(e.target.value)}
+                className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-700 border-none focus:ring-2 focus:ring-green-500 text-xs font-medium text-gray-800 dark:text-gray-200 resize-none transition-all font-mono leading-relaxed"
+              />
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowWhatsappModal(false)}
+                className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-2xl font-black text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendWhatsapp}
+                className="flex-1 flex items-center justify-center gap-2 py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-green-600/30 transition-all active:scale-95"
+              >
+                <MessageCircle size={16} />
+                <span>Abrir WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
