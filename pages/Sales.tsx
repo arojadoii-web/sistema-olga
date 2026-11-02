@@ -1178,7 +1178,7 @@ const SaleDetailModal: React.FC<{
   const defaultMessage = useMemo(() => {
     const clientName = (displayName || 'VENTA DEL DIA').toUpperCase();
     return `¡Hola ${clientName}! \n\n` +
-      `🍎 Le saluda Frutería Olga.\n\n` +
+      `Le saluda 🍏 Frutería Olga 🍎.\n\n` +
       `Te enviamos tu COMPROBANTE DE COMPRA 🧾\n` +
       `Confírme la recepción, por favor ✅👍\n\n` +
       `GRACIAS por tu compra 🙌`;
