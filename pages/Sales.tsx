@@ -369,7 +369,9 @@ const SalesList: React.FC<{
                   <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{displayDate(sale.date)}</p>
                     <p className="font-black text-gray-900 dark:text-white leading-tight uppercase">{clientInfo.name}</p>
-                    <p className="text-[10px] font-bold text-primary-600 uppercase mt-1">{sale.documentType} {sale.documentNumber}</p>
+                    <p className={`text-[10px] font-bold uppercase mt-1 ${sale.saleStatus === 'Anulado' ? 'text-red-500 font-black' : 'text-primary-600'}`}>
+                      {sale.documentType} {sale.documentNumber}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-black text-primary-600 leading-none">{formatMoney(sale.total)}</p>
@@ -435,8 +437,8 @@ const SalesList: React.FC<{
                     <div className="text-[10px] text-gray-400 font-bold">{clientInfo.docType}: {clientInfo.docNumber}</div>
                   </td>
                   <td className="px-8 py-5">
-                    <div className="text-[10px] font-black text-primary-600 uppercase tracking-widest">{sale.documentType}</div>
-                    <div className="text-sm font-black text-gray-900 dark:text-white">{sale.documentNumber}</div>
+                    <div className={`text-[10px] font-black uppercase tracking-widest ${sale.saleStatus === 'Anulado' ? 'text-red-500' : 'text-primary-600'}`}>{sale.documentType}</div>
+                    <div className={`text-sm font-black ${sale.saleStatus === 'Anulado' ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{sale.documentNumber}</div>
                   </td>
                   <td className="px-8 py-5 text-right text-base font-black text-primary-600">{formatMoney(sale.total)}</td>
                   <td className="px-8 py-5 text-center">
