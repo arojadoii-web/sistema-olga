@@ -470,15 +470,19 @@ const SalesList: React.FC<{
                         {isSending === sale.id ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
                       </button>
                       <button onClick={() => onEdit(sale)} title="Editar Venta Seleccionada" className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-xl transition-all"><Edit2 size={18} /></button>
-                      {sale.saleStatus !== 'Anulado' && (
+                      {sale.saleStatus !== 'Anulado' ? (
                         <button 
                           disabled={isCancelling === sale.id}
                           onClick={() => handleCancelClick(sale.id)} 
                           title="Anular Operación"
-                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl disabled:opacity-50"
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all disabled:opacity-50"
                         >
                           {isCancelling === sale.id ? <Loader2 className="animate-spin" size={18} /> : <XCircle size={18} />}
                         </button>
+                      ) : (
+                        <div className="p-2 opacity-0 pointer-events-none select-none" aria-hidden="true">
+                          <XCircle size={18} />
+                        </div>
                       )}
                     </div>
                   </td>
