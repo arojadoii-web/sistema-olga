@@ -1169,12 +1169,55 @@ const SaleDetailModal: React.FC<{
   const detectedPhones = useMemo(() => {
     const raw = String(displayContact || '').trim();
     if (!raw) return [];
-    // Busca números de al menos 7 a 15 dígitos
-    const matches = raw.match(/\d[\d\s-]{5,14}\d/g) || [];
-    const cleaned = matches
-      .map(m => m.replace(/\D/g, ''))
-      .filter(m => m.length >= 7);
-    return Array.from(new Set(cleaned));
+
+    const found: string[] = [];
+
+    // Dividir por separadores comunes entre múltiples teléfonos:
+    // barras (/ \), comas (,), punto y coma (;), pipes (|), saltos de línea,
+    // guiones con o sin espacios entre números ('965400353 - 962769116'), conectores (' y ', ' e ', ' o ')
+    const chunks = raw.split(/[\/\\,;|\n\r]+|\s*[-–—]\s*(?=\d{7})|\s+[-–—]\s+|\s+(?:y|e|o)\s+/i);
+
+    for (const chunk of chunks) {
+      const cleaned = chunk.trim();
+      if (!cleaned) continue;
+
+      // Buscar si dentro del fragmento hay múltiples celulares de 9 dígitos (ej. separados por espacio '965400353 962769116')
+      const subMatches = cleaned.match(/(?:(?:\+?51)?\s*)?9\d{8}\b/g);
+      if (subMatches && subMatches.length > 1) {
+        for (const sm of subMatches) {
+          let digits = sm.replace(/\D/g, '');
+          if (digits.startsWith('51') && digits.length === 11) digits = digits.slice(2);
+          if (digits.length >= 7 && !found.includes(digits)) found.push(digits);
+        }
+        continue;
+      }
+
+      let digits = cleaned.replace(/\D/g, '');
+      if (digits.startsWith('51') && digits.length === 11) digits = digits.slice(2);
+
+      if (digits.length >= 18) {
+        const part1 = digits.slice(0, 9);
+        const part2 = digits.slice(9, 18);
+        if (part1.startsWith('9') && !found.includes(part1)) found.push(part1);
+        if (part2.startsWith('9') && !found.includes(part2)) found.push(part2);
+        continue;
+      }
+
+      if (digits.length >= 7 && digits.length <= 15) {
+        if (!found.includes(digits)) found.push(digits);
+      }
+    }
+
+    if (found.length === 0) {
+      const directMatches = raw.match(/9\d{8}/g);
+      if (directMatches) {
+        directMatches.forEach(m => {
+          if (!found.includes(m)) found.push(m);
+        });
+      }
+    }
+
+    return found;
   }, [displayContact]);
 
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
@@ -1193,9 +1236,9 @@ const SaleDetailModal: React.FC<{
   useEffect(() => {
     if (showWhatsappModal) {
       setWhatsappMessage(defaultMessage);
-      setSelectedPhone(detectedPhones[0] || (displayContact ? displayContact.replace(/\D/g, '') : ''));
+      setSelectedPhone(detectedPhones[0] || '');
     }
-  }, [showWhatsappModal, defaultMessage, detectedPhones, displayContact]);
+  }, [showWhatsappModal, defaultMessage, detectedPhones]);
 
   // Teclado: Flecha izquierda (anterior), Flecha derecha (siguiente), Escape (cerrar)
   useEffect(() => {
